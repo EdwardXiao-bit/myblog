@@ -40,7 +40,7 @@ const socials = site.socials
       }
 
       {
-        socials.length > 0 && (
+        (socials.length > 0 || site.contacts.length > 0) && (
           <ul class="socials">
             {socials.map((s) => (
               <li>
@@ -52,6 +52,15 @@ const socials = site.socials
                   {s.label}
                   <span class="arrow" aria-hidden="true">↗</span>
                 </a>
+              </li>
+            ))}
+            {site.contacts.map((contact) => (
+              <li>
+                {/* QQ / 微信没有公开主页，只能贴文字。虚线边框提示「这不是链接」 */}
+                <span class="contact" title={`${contact.label}：${contact.value}`}>
+                  <span class="contact-label">{contact.label}</span>
+                  {contact.value}
+                </span>
               </li>
             ))}
           </ul>
@@ -94,6 +103,38 @@ const socials = site.socials
             </li>
           ))}
         </ol>
+      </section>
+    )
+  }
+
+  {
+    site.hobbies.length > 0 && (
+      <section class="section" id="hobbies">
+        <div class="section-head">
+          <h2>兴趣爱好</h2>
+        </div>
+        <ul class="hobbies">
+          {site.hobbies.map((hobby) => (
+            <li class="hobby">
+              <span class="hobby-emoji" aria-hidden="true">
+                {hobby.emoji}
+              </span>
+              <div class="hobby-body">
+                <h3>{hobby.name}</h3>
+                {hobby.note &&
+                  (hobby.href ? (
+                    <p class="hobby-note">
+                      <a href={hobby.href} target="_blank" rel="noopener">
+                        {hobby.note}
+                      </a>
+                    </p>
+                  ) : (
+                    <p class="hobby-note">{hobby.note}</p>
+                  ))}
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
     )
   }
@@ -199,6 +240,65 @@ const socials = site.socials
   .socials .arrow {
     font-size: 0.75em;
     opacity: 0.6;
+  }
+
+  /* QQ / 微信：只是文字，不是链接，所以用虚线边框和「不可点」的观感区分开。
+     user-select: all 让它点一下就能整段选中，方便复制。 */
+  .contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+    user-select: all;
+  }
+
+  .contact-label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  /* 兴趣爱好 */
+  .hobbies {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .hobby {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .hobby-emoji {
+    flex: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    /* emoji 的基线在不同字体下不一致，往上提一点和标题对齐 */
+    margin-top: 1px;
+  }
+
+  .hobby-body h3 {
+    font-size: 1rem;
+  }
+
+  .hobby-note {
+    margin-top: 5px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
   }
 
   /* 经历时间线 */

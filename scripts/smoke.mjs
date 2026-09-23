@@ -8,6 +8,25 @@ import { readdirSync } from 'node:fs';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4321';
 
+// 服务器可能还在启动（Astro dev 冷启动要十几秒）。
+// 不等就测，会把「还没起来」误报成一堆用例失败——那是假警报，最浪费时间。
+const started = Date.now();
+let alive = false;
+while (Date.now() - started < 25000) {
+  try {
+    await fetch(base, { signal: AbortSignal.timeout(2000) });
+    alive = true;
+    break;
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+if (!alive) {
+  console.log(`连不上 ${base} —— 服务器没在跑？先 npm run dev 或 npm run serve`);
+  process.exit(1);
+}
+
 const cases = [
   { path: '/', must: ['class="hero"', 'timeline-period', 'class="chips"', 'dataset.theme'] },
   { path: '/projects', must: ['我的项目', 'project-card'] },

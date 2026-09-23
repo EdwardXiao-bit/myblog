@@ -15,6 +15,21 @@ export interface ExperienceItem {
   desc?: string;
 }
 
+/** 直接展示的联系方式：QQ / 微信这类没有公开主页，只能写成文字 */
+export interface ContactItem {
+  label: string;
+  value: string;
+}
+
+export interface Hobby {
+  emoji: string;
+  name: string;
+  /** 补充说明，例如 Steam 好友 ID、视频号 */
+  note?: string;
+  /** 有公开链接才填；没有就只显示文字 */
+  href?: string;
+}
+
 export interface SiteConfig {
   /** 站点名，显示在浏览器标签和左上角 */
   name: string;
@@ -29,9 +44,13 @@ export interface SiteConfig {
   /** 邮箱，留空则不显示 */
   email: string;
   socials: SocialLink[];
+  /** 直接展示的联系方式（QQ / 微信），和 socials 一起排在名字下面 */
+  contacts: ContactItem[];
   /** 每段一个字符串，会按段落渲染 */
   about: string[];
   experience: ExperienceItem[];
+  /** 兴趣爱好，显示在「经历」下面 */
+  hobbies: Hobby[];
   skills: string[];
 }
 
@@ -47,7 +66,12 @@ export const site: SiteConfig = {
     { label: 'GitHub', href: 'https://github.com/EdwardXiao-bit' },
     { label: 'Email', href: '1062355602@qq.com' },
     // { label: 'X', href: 'https://x.com/yourname' },
-    // { label: '博客园', href: 'https://example.com' },
+  ],
+
+  // QQ / 微信没有公开主页，只能写成文字贴出来。不想要就删掉对应那行。
+  contacts: [
+    { label: 'QQ', value: '1062355602' },
+    { label: '微信', value: '19923173106' },
   ],
 
   // ↓ 只陈述做过的事，不写「方向 / 兴趣领域」——方向还没定，不替你表态
@@ -59,18 +83,30 @@ export const site: SiteConfig = {
   experience: [
     // ← 按时间倒序，想加几段加几段
     {
-      period: '2024 — 现在',
-      title: '本科在读',
-      org: '四川大学 · 计算机科学与技术',
+      period: '2021 — 2024',
+      title: '高中',
+      org: '重庆市第八中学',
     },
     {
-      period: '2026 上半年',
-      title: '古陶瓷碎片智能复原',
-      org: '项目经历',
-      desc: '用深度学习做碎片拼接与三维重建，另做了一个展示站点。',
+      period: '2024 — 现在',
+      title: '本科在读',
+      org: '四川大学 · 计算机学院 计算机科学与技术',
+    },
+    {
+      period: '2026 7月',
+      title: '新加坡国立大学计算机学院暑期研习',
+      org: '研学经历',
     },
   ],
 
+  // ← 爱好，显示在「经历」下面。Steam / 视频号这类只能写 ID，没有公开链接
+  hobbies: [
+    { emoji: '🚲', name: '骑行' },
+    { emoji: '🎮', name: '游戏', note: 'Steam 好友 ID：1421154588（EdwardDavis）' },
+    { emoji: '🎹', name: '钢琴', note: '微信视频号：EdwardDavisXiao' },
+    { emoji: '🏊‍♀️', name: '游泳' },
+  ],
+
   // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
-  skills: ['Python', 'C++', 'JavaScript', 'PyTorch', 'WebGL'],
+  skills: ['AI Agent', 'C++', 'Unity', 'Didot', 'JavaScript', 'PyTorch', 'WebGL'],
 };
