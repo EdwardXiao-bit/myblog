@@ -178,7 +178,43 @@ console.log(
 );
 if (!dark) failed++;
 
-// ---------- 6) SEO / 分享卡片 / 订阅 ----------
+// ---------- 6) 布局宽度 ----------
+// 文字页和网格页用不同容器宽度。搞混了就会出现「内容偏左、右边一大块空白」，
+// 所以这里把两类页面的归属固定住。
+console.log('\n--- 布局宽度 ---');
+
+const layoutCases = [
+  { page: 'dist/client/index.html', wide: false, what: '首页（文字页）' },
+  { page: 'dist/client/projects/index.html', wide: true, what: '项目页（网格页）' },
+  { page: 'dist/client/activities/index.html', wide: true, what: '活动列表（网格页）' },
+];
+
+for (const detail of detailPages) {
+  layoutCases.push({ page: detail, wide: false, what: '活动详情（文字页）' });
+}
+
+for (const c of layoutCases) {
+  const body = html.get(c.page);
+  if (!body) continue;
+  const isWide = /<body class="layout-wide"/.test(body);
+  if (isWide === c.wide) {
+    console.log(`OK   ${c.what} 使用${c.wide ? '宽容器' : '窄容器'}`);
+  } else {
+    fail(`${c.what} 容器类型不对（期望${c.wide ? '宽' : '窄'}）`);
+  }
+}
+
+// 两个宽度变量都要真的进了产物 CSS，否则页面会一起退回同一个宽度
+const allCss = cssFiles.map((f) => readFileSync(join(assetDir, f), 'utf8')).join('\n');
+const hasTextWidth = allCss.includes('--maxw-text:');
+const hasWideRule = /body\.layout-wide \.wrap\{max-width:var\(--maxw\)\}/.test(allCss.replace(/\s+/g, ' '));
+if (hasTextWidth && hasWideRule) {
+  console.log('OK   窄/宽两套容器规则都在产物 CSS 里');
+} else {
+  fail(`容器规则缺失：--maxw-text=${hasTextWidth} 宽容器规则=${hasWideRule}`);
+}
+
+// ---------- 7) SEO / 分享卡片 / 订阅 ----------
 console.log('\n--- SEO / 分享卡片 / 订阅 ---');
 
 const home = html.get('dist/client/index.html') ?? '';

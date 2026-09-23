@@ -32,10 +32,14 @@
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
 
   /* 布局 */
-  /* --maxw   页面外壳宽度：网格、列表、图片吃满它
-     --measure 正文可读宽度：纯文字块不要跟着外壳一起变宽，
-               中文一行超过 50 字左右就会明显难读 */
+  /* 两种页面宽度，按页面类型选：
+       --maxw      网格型页面（项目、活动列表）：卡片和图片吃满它
+       --maxw-text 文字型页面（首页、留言板、管理页）：整页收窄。
+                   如果外壳很宽、正文却限在 800px，右边会空出一大块，
+                   整页看着就往左偏——所以文字页直接用窄容器，两端对称。
+       --measure   宽容器里正文的行宽上限，防止一行中文太长 */
   --maxw: 1080px;
+  --maxw-text: 900px;
   --measure: 800px;
   --gutter: clamp(20px, 4vw, 36px);
 
@@ -155,9 +159,15 @@ img {
 
 .wrap {
   width: 100%;
-  max-width: var(--maxw);
+  max-width: var(--maxw-text);
   margin-inline: auto;
   padding-inline: var(--gutter);
+}
+
+/* 网格型页面（项目页、活动列表）在 <body> 上加了 layout-wide，
+   头部和正文一起变宽，保证同一页里左右边界是一条线 */
+body.layout-wide .wrap {
+  max-width: var(--maxw);
 }
 
 main {
