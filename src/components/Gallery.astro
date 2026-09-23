@@ -21,7 +21,7 @@ const { photos, alt = '活动照片' } = Astro.props;
               src={photo}
               alt={`${alt} ${i + 1}`}
               widths={[320, 640, 1280]}
-              sizes="(max-width: 560px) 45vw, 240px"
+              sizes="(max-width: 560px) 45vw, 440px"
               loading="lazy"
               decoding="async"
             />
@@ -35,7 +35,9 @@ const { photos, alt = '活动照片' } = Astro.props;
 <style>
   .gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    /* auto-fit 而不是 auto-fill：图片少的时候会把空轨道收掉、让图铺开。
+       用 auto-fill 时两张图会挤在 168px 的格子里，截图里的字根本看不清。 */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 12px;
     margin: 0;
     padding: 0;

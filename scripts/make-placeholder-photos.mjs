@@ -15,6 +15,9 @@ try {
   process.exit(1);
 }
 
+// 注意：这里只留还没换成真实照片的示例活动。
+// 「开源日」已经用了真实截图，所以从列表里移除了——
+// 留着的话，一跑这个脚本就会往那个目录里塞占位图。
 const sets = [
   {
     dir: 'src/content/activities/2024-summer-meetup',
@@ -23,15 +26,6 @@ const sets = [
       ['#1f4a56', '#4f93a8'],
       ['#4a5f2f', '#9cb86a'],
       ['#6b4a2f', '#c69a6a'],
-    ],
-  },
-  {
-    dir: 'src/content/activities/2023-open-source-day',
-    palette: [
-      ['#3a3f6b', '#8a8fc6'],
-      ['#6b3a5a', '#c68ab0'],
-      ['#2f5a6b', '#7fb0c6'],
-      ['#5a4a2f', '#b8a06a'],
     ],
   },
 ];
