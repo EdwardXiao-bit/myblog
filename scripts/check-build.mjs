@@ -179,8 +179,8 @@ console.log(
 if (!dark) failed++;
 
 // ---------- 6) 布局宽度 ----------
-// 文字页和网格页用不同容器宽度。搞混了就会出现「内容偏左、右边一大块空白」，
-// 所以这里把两类页面的归属固定住。
+// 文字页和网格页用不同容器宽度。搞混了就会出现「内容偏左、右边一大块空白」。
+// 另外头部/页脚必须每一页同宽，否则切页时导航会横向跳动。
 console.log('\n--- 布局宽度 ---');
 
 const layoutCases = [
@@ -196,18 +196,34 @@ for (const detail of detailPages) {
 for (const c of layoutCases) {
   const body = html.get(c.page);
   if (!body) continue;
-  const isWide = /<body class="layout-wide"/.test(body);
-  if (isWide === c.wide) {
-    console.log(`OK   ${c.what} 使用${c.wide ? '宽容器' : '窄容器'}`);
+  const mainIsWide = /<main class="wrap wrap-wide"/.test(body);
+  if (mainIsWide === c.wide) {
+    console.log(`OK   ${c.what} 正文使用${c.wide ? '宽' : '窄'}容器`);
   } else {
-    fail(`${c.what} 容器类型不对（期望${c.wide ? '宽' : '窄'}）`);
+    fail(`${c.what} 正文容器类型不对（期望${c.wide ? '宽' : '窄'}）`);
   }
+}
+
+// 头部和页脚在每一页都必须同宽
+const chromeMismatch = [...html.entries()]
+  .filter(
+    ([, body]) =>
+      !body.includes('class="wrap wrap-wide header-inner"') ||
+      !body.includes('class="wrap wrap-wide footer-inner"')
+  )
+  .map(([page]) => page);
+
+if (chromeMismatch.length === 0) {
+  console.log(`OK   全部 ${html.size} 个页面的头部与页脚同宽`);
+} else {
+  fail(`头部/页脚宽度不一致：${chromeMismatch.join(', ')}`);
 }
 
 // 两个宽度变量都要真的进了产物 CSS，否则页面会一起退回同一个宽度
 const allCss = cssFiles.map((f) => readFileSync(join(assetDir, f), 'utf8')).join('\n');
+const normalizedCss = allCss.replace(/\s+/g, ' ');
 const hasTextWidth = allCss.includes('--maxw-text:');
-const hasWideRule = /body\.layout-wide \.wrap\{max-width:var\(--maxw\)\}/.test(allCss.replace(/\s+/g, ' '));
+const hasWideRule = /\.wrap-wide\{max-width:var\(--maxw\)\}/.test(normalizedCss);
 if (hasTextWidth && hasWideRule) {
   console.log('OK   窄/宽两套容器规则都在产物 CSS 里');
 } else {

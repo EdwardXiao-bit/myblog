@@ -61,9 +61,9 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
     </script>
   </head>
 
-  <body class={wide ? 'layout-wide' : undefined}>
+  <body>
     <Header />
-    <main class="wrap">
+    <main class={wide ? 'wrap wrap-wide' : 'wrap'}>
       <slot />
     </main>
     <Footer />

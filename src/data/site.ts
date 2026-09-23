@@ -50,10 +50,10 @@ export const site: SiteConfig = {
     // { label: '博客园', href: 'https://example.com' },
   ],
 
-  // ↓ 根据 GitHub 公开信息起的草稿，请改成你自己的说法
+  // ↓ 只陈述做过的事，不写「方向 / 兴趣领域」——方向还没定，不替你表态
   about: [
-    '四川大学计算机科学与技术专业大三在读，在成都。做过古陶瓷碎片的深度学习重建，也写各种小工具——从命令行脚本到 DeepSeek Harness 插件。',
-    '主要兴趣在计算机视觉与三维重建，最近在给 DeepSeek Harness 写插件，顺手把踩过的坑整理成文档。',
+    '四川大学计算机科学与技术专业大三在读，在成都。做过古陶瓷碎片的深度学习复原，也写各种小工具。',
+    '最近在给 DeepSeek Harness 写插件，也会把踩过的坑整理成文档。',
   ],
 
   experience: [
@@ -62,7 +62,6 @@ export const site: SiteConfig = {
       period: '2024 — 现在',
       title: '本科在读',
       org: '四川大学 · 计算机科学与技术',
-      desc: '方向偏计算机视觉与图形学。',
     },
     {
       period: '2026 上半年',
@@ -72,5 +71,6 @@ export const site: SiteConfig = {
     },
   ],
 
-  skills: ['Python', '计算机视觉', '三维重建', 'JavaScript', 'C++'], // ← 待确认
+  // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
+  skills: ['Python', 'C++', 'JavaScript', 'PyTorch', 'WebGL'],
 };

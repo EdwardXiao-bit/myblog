@@ -164,9 +164,10 @@ img {
   padding-inline: var(--gutter);
 }
 
-/* 网格型页面（项目页、活动列表）在 <body> 上加了 layout-wide，
-   头部和正文一起变宽，保证同一页里左右边界是一条线 */
-body.layout-wide .wrap {
+/* 宽容器：网格型页面的正文，外加**每一页**的头部和页脚。
+   头部必须每一页都同宽——否则在首页和项目页之间切换时，
+   导航会横向跳一下，看起来像两个不同的站。 */
+.wrap-wide {
   max-width: var(--maxw);
 }
 
