@@ -10,8 +10,6 @@ interface Props {
   /** 分享卡片图片的站内路径，默认用站点通用卡片 */
   ogImage?: string;
   ogType?: 'website' | 'article';
-  /** 网格型页面（项目页、活动列表）用更宽的容器 */
-  wide?: boolean;
 }
 
 const {
@@ -19,7 +17,6 @@ const {
   description = '个人主页',
   ogImage = '/og.png',
   ogType = 'website',
-  wide = false,
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
@@ -63,7 +60,7 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
 
   <body>
     <Header />
-    <main class={wide ? 'wrap wrap-wide' : 'wrap'}>
+    <main class="wrap">
       <slot />
     </main>
     <Footer />

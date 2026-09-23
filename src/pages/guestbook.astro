@@ -276,13 +276,11 @@ const notice = notices[code];
     margin-left: auto;
   }
 
-  /* 保留用户输入的换行，同时保证内容被转义（Astro 默认转义）。
-     卡片按外壳宽度对齐，但正文本身收在可读行宽内。 */
+  /* 保留用户输入的换行，同时保证内容被转义（Astro 默认转义） */
   .text {
     font-size: 0.9375rem;
     line-height: 1.7;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    max-width: var(--measure);
   }
 </style>

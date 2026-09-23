@@ -179,55 +179,43 @@ console.log(
 if (!dark) failed++;
 
 // ---------- 6) 布局宽度 ----------
-// 文字页和网格页用不同容器宽度。搞混了就会出现「内容偏左、右边一大块空白」。
-// 另外头部/页脚必须每一页同宽，否则切页时导航会横向跳动。
+// 全站只有一个容器宽度。曾经按页面类型分宽窄，结果导航要么和正文对不齐、
+// 要么切页时横跳——两者不可能同时成立。
 console.log('\n--- 布局宽度 ---');
 
-const layoutCases = [
-  { page: 'dist/client/index.html', wide: false, what: '首页（文字页）' },
-  { page: 'dist/client/projects/index.html', wide: true, what: '项目页（网格页）' },
-  { page: 'dist/client/activities/index.html', wide: true, what: '活动列表（网格页）' },
-];
-
-for (const detail of detailPages) {
-  layoutCases.push({ page: detail, wide: false, what: '活动详情（文字页）' });
-}
-
-for (const c of layoutCases) {
-  const body = html.get(c.page);
-  if (!body) continue;
-  const mainIsWide = /<main class="wrap wrap-wide"/.test(body);
-  if (mainIsWide === c.wide) {
-    console.log(`OK   ${c.what} 正文使用${c.wide ? '宽' : '窄'}容器`);
-  } else {
-    fail(`${c.what} 正文容器类型不对（期望${c.wide ? '宽' : '窄'}）`);
-  }
-}
-
-// 头部和页脚在每一页都必须同宽
-const chromeMismatch = [...html.entries()]
+const chromeBad = [...html.entries()]
   .filter(
     ([, body]) =>
-      !body.includes('class="wrap wrap-wide header-inner"') ||
-      !body.includes('class="wrap wrap-wide footer-inner"')
+      !body.includes('class="wrap header-inner"') ||
+      !body.includes('class="wrap footer-inner"')
   )
   .map(([page]) => page);
 
-if (chromeMismatch.length === 0) {
-  console.log(`OK   全部 ${html.size} 个页面的头部与页脚同宽`);
+if (chromeBad.length === 0) {
+  console.log(`OK   全部 ${html.size} 个页面的头部与页脚使用同一个容器`);
 } else {
-  fail(`头部/页脚宽度不一致：${chromeMismatch.join(', ')}`);
+  fail(`头部/页脚容器不对：${chromeBad.join(', ')}`);
 }
 
-// 两个宽度变量都要真的进了产物 CSS，否则页面会一起退回同一个宽度
+const mainBad = [...html.entries()]
+  .filter(([, body]) => !/<main class="wrap">/.test(body))
+  .map(([page]) => page);
+
+if (mainBad.length === 0) {
+  console.log(`OK   全部 ${html.size} 个页面的正文与头部同宽（导航和正文左边缘对齐）`);
+} else {
+  fail(`正文容器与头部不一致：${mainBad.join(', ')}`);
+}
+
+// 产物 CSS 里只应剩一个宽度变量，分宽窄的残留会导致对齐再次错位
 const allCss = cssFiles.map((f) => readFileSync(join(assetDir, f), 'utf8')).join('\n');
 const normalizedCss = allCss.replace(/\s+/g, ' ');
-const hasTextWidth = allCss.includes('--maxw-text:');
-const hasWideRule = /\.wrap-wide\{max-width:var\(--maxw\)\}/.test(normalizedCss);
-if (hasTextWidth && hasWideRule) {
-  console.log('OK   窄/宽两套容器规则都在产物 CSS 里');
+const singleWidth = /--maxw:\d+px/.test(normalizedCss);
+const leftoverTextWidth = normalizedCss.includes('--maxw-text');
+if (singleWidth && !leftoverTextWidth) {
+  console.log('OK   全站单一容器宽度，没有按页面分宽窄的残留');
 } else {
-  fail(`容器规则缺失：--maxw-text=${hasTextWidth} 宽容器规则=${hasWideRule}`);
+  fail(`容器宽度配置不对：单一宽度=${singleWidth} 残留分宽=${leftoverTextWidth}`);
 }
 
 // ---------- 7) SEO / 分享卡片 / 订阅 ----------

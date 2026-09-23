@@ -31,16 +31,11 @@
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
 
-  /* 布局 */
-  /* 两种页面宽度，按页面类型选：
-       --maxw      网格型页面（项目、活动列表）：卡片和图片吃满它
-       --maxw-text 文字型页面（首页、留言板、管理页）：整页收窄。
-                   如果外壳很宽、正文却限在 800px，右边会空出一大块，
-                   整页看着就往左偏——所以文字页直接用窄容器，两端对称。
-       --measure   宽容器里正文的行宽上限，防止一行中文太长 */
-  --maxw: 1080px;
-  --maxw-text: 900px;
-  --measure: 800px;
+  /* 布局：全站只有一个容器宽度，导航和正文都用它。
+     曾经试过「文字页窄、网格页宽」，但导航要和正文对齐，正文宽度就不能按页变——
+     否则要么切页时导航横跳，要么首页的导航和正文对不齐。
+     960px 是折中：项目页排得下三列，中文一行约 55 字，还在能读的范围。 */
+  --maxw: 960px;
   --gutter: clamp(20px, 4vw, 36px);
 
   /* 头部高度，供滚动锚点定位避开吸顶栏 */
@@ -159,16 +154,9 @@ img {
 
 .wrap {
   width: 100%;
-  max-width: var(--maxw-text);
+  max-width: var(--maxw);
   margin-inline: auto;
   padding-inline: var(--gutter);
-}
-
-/* 宽容器：网格型页面的正文，外加**每一页**的头部和页脚。
-   头部必须每一页都同宽——否则在首页和项目页之间切换时，
-   导航会横向跳一下，看起来像两个不同的站。 */
-.wrap-wide {
-  max-width: var(--maxw);
 }
 
 main {
@@ -247,10 +235,6 @@ main {
 }
 
 /* 正文排版（P2 起给 Markdown 内容复用） */
-.prose {
-  max-width: var(--measure);
-}
-
 .prose > * + * {
   margin-top: 1em;
 }

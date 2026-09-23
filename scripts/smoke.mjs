@@ -4,6 +4,8 @@
 // 只断言结构和板块是否存在，不写死具体内容——否则你一改内容，
 // 检查就红，看着像站点坏了，其实只是断言过时。
 
+import { readdirSync } from 'node:fs';
+
 const base = process.argv[2] ?? 'http://127.0.0.1:4321';
 
 const cases = [
@@ -55,6 +57,40 @@ try {
 } catch (err) {
   failed++;
   console.log(`FAIL 活动详情页探测失败: ${err.message}`);
+}
+
+// 内容新鲜度：源码里有几个项目文件，页面上就该有几张卡。
+// 只比数量、不比内容，所以内容怎么写都不会误报；
+// 但「改了内容却没重启 dev」导致服务器一直发旧页，会被抓住。
+try {
+  const projectFiles = readdirSync('src/content/projects').filter((f) => f.endsWith('.md')).length;
+  const projectsHtml = await (await fetch(base + '/projects')).text();
+  const cards = (projectsHtml.match(/class="project-card"/g) ?? []).length;
+
+  if (cards === projectFiles) {
+    console.log(`OK   项目页卡片数 ${cards} 与源文件数一致（内容不是旧的）`);
+  } else {
+    failed++;
+    console.log(
+      `FAIL 项目页有 ${cards} 张卡，源文件却有 ${projectFiles} 个 —— 服务器可能在发旧内容，重启 dev 再试`
+    );
+  }
+
+  const activityDirs = readdirSync('src/content/activities', { withFileTypes: true }).filter((d) =>
+    d.isDirectory()
+  ).length;
+  const activitiesHtml = await (await fetch(base + '/activities')).text();
+  const items = (activitiesHtml.match(/class="activity"/g) ?? []).length;
+
+  if (items === activityDirs) {
+    console.log(`OK   活动页条目数 ${items} 与源目录数一致`);
+  } else {
+    failed++;
+    console.log(`FAIL 活动页有 ${items} 条，源目录却有 ${activityDirs} 个 —— 服务器可能在发旧内容`);
+  }
+} catch (err) {
+  failed++;
+  console.log(`FAIL 内容新鲜度检查失败: ${err.message}`);
 }
 
 console.log(failed ? `\n${failed} 个用例失败` : '\n全部通过');
