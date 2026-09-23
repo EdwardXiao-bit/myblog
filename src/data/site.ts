@@ -77,11 +77,11 @@ export const site: SiteConfig = {
   // ↓ 只陈述做过的事，不写「方向 / 兴趣领域」——方向还没定，不替你表态
   about: [
     '四川大学计算机科学与技术专业大三在读，在成都。做过古陶瓷碎片的深度学习复原，也写各种小工具。',
-    '最近在探索AI Agent， 并给 DeepSeek Harness 写插件。',
+    '最近在探索 AI Agent，并给 DeepSeek Harness 写插件。',
   ],
 
   experience: [
-    // ← 按时间倒序，想加几段加几段
+    // ← 一行一段经历，顺序随意（现在是从高中往下读的时间线）
     {
       period: '2021 — 2024',
       title: '高中',
