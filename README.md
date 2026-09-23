@@ -57,34 +57,37 @@ order: 1        # 数字越小越靠前
 一个活动 = `src/content/activities/` 下的一个目录：
 
 ```
-src/content/activities/2024-summer-meetup/
+src/content/activities/2026-guanyinqiao-reunion/
   index.md        ← 活动信息 + 正文
-  cover.jpg       ← 封面（列表页缩略图）
-  photo-1.jpg     ← 照片，数量随意
-  photo-2.jpg
+  cover-group.jpg ← 封面（列表页缩略图）
+  group-wide.jpg  ← 照片，数量随意
+  bingjiang.jpg
 ```
 
 `index.md` 的写法：
 
 ```markdown
 ---
-title: 2024 夏日聚会
-date: 2024-08-17
-location: 上海 · 某创意园
+title: 观音桥同学聚会
+date: 2026-08-23
+location: 重庆 · 观音桥
 summary: 列表页显示的一句话
-cover: ./cover.jpg
+cover: ./cover-group.jpg
 photos:
-  - ./photo-1.jpg
-  - ./photo-2.jpg
+  - ./group-wide.jpg
+  - ./bingjiang.jpg
+captions:          # 可选，和 photos 按顺序对应
+  - 高中同学
+  - 贵州冰浆，开到了重庆
 ---
 正文写在这里，支持 Markdown。
 ```
 
 照片直接放进同目录、在 `photos` 里列出文件名即可——站点会自动压缩成 WebP、按屏幕宽度生成多尺寸，并做懒加载，你不需要手动处理图片。
 
-> 现有的 `2024-summer-meetup` 和 `2023-open-source-day` 是**示例**，照片是脚本生成的占位图。
-> 确认玩法之后，整个目录删掉、换成你自己的活动即可。
-> （`scripts/make-placeholder-photos.mjs` 是生成那些占位图的脚本，**会覆盖同名文件，别在放了自己照片之后跑它**。）
+> 画廊用的是多列（masonry）布局，横图和竖图会各按自己的比例排，
+> **不会被裁成统一尺寸**——所以手机拍的竖图直接放进去也不会缺内容。
+> `captions` 是可选的，但照片多、题材杂时写上会清楚很多。
 
 ## 留言板与日记
 

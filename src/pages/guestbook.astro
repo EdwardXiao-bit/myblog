@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
-import { LIMITS, listFeed, moderationOn } from '../lib/guestbook';
+import { LIMITS, listFeed, listPending, moderationOn } from '../lib/guestbook';
 import { adminCookie, verifyToken } from '../lib/auth';
 import { formatDate } from '../utils/format';
 
@@ -11,9 +11,13 @@ const entries = listFeed();
 const authed = verifyToken(Astro.cookies.get(adminCookie.name)?.value);
 const moderated = moderationOn();
 
+// 登录状态下一并显示待审核条数——否则站长提交完只看到「已收到」，
+// 不知道下一步要自己去管理页点通过。
+const pendingCount = authed ? listPending().length : 0;
+
 const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   ok: { tone: 'ok', text: '收到了，谢谢你的留言！' },
-  pending: { tone: 'ok', text: '留言已收到，通过审核后就会显示在这里。' },
+  pending: { tone: 'ok', text: '留言已收到。这个站的留言要站长审核通过后才会公开显示。' },
   rate: { tone: 'warn', text: `提交有点频繁，同一来源一小时最多 ${LIMITS.perHour} 条，稍后再试。` },
   empty: { tone: 'warn', text: '内容不能为空。' },
   'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字，精简一下再发。` },
@@ -33,7 +37,13 @@ const notice = notices[code];
 
     <p class="intro">
       想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示。
-      {authed && <a class="admin-hint" href="/admin">→ 去管理页</a>}
+      {
+        authed && (
+          <a class="admin-hint" href="/admin">
+            → 管理页{pendingCount > 0 ? `（${pendingCount} 条待审核）` : ''}
+          </a>
+        )
+      }
     </p>
 
     {

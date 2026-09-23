@@ -55,9 +55,9 @@ export interface SiteConfig {
 }
 
 export const site: SiteConfig = {
-  name: '肖铭皓',                                    // ← 改成你的名字
+  name: 'EdwardXiao',                                // ← 站点名：浏览器标签、左上角、页脚都用它
   tagline: '计科生一枚，vibe coding摸鱼中🖐️🐟️',        // ← 改成你的签名
-  description: '肖铭皓的个人主页：简介、项目、活动与留言板。',
+  description: 'EdwardXiao 的个人主页：简介、项目、活动与留言板。',
   avatar: '/avatar.jpg',                               // ← 把图片放到 public/avatar.jpg 即可；没有文件时自动用名字首字
   location: '中国 · 成都',                              // ← 改成你的城市
   email: '1062355602@qq.com',                            // ← 改成你的邮箱
