@@ -1,0 +1,27 @@
+{
+  "name": "myblog",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "serve": "node dist/server/entry.mjs",
+    "check:build": "node scripts/check-build.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "test:guestbook": "node scripts/test-guestbook.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.6",
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.4",
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2"
+  }
+}

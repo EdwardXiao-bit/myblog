@@ -1,0 +1,288 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import { LIMITS, listFeed, moderationOn } from '../lib/guestbook';
+import { adminCookie, verifyToken } from '../lib/auth';
+import { formatDate } from '../utils/format';
+
+const entries = listFeed();
+const authed = verifyToken(Astro.cookies.get(adminCookie.name)?.value);
+const moderated = moderationOn();
+
+const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
+  ok: { tone: 'ok', text: '收到了，谢谢你的留言！' },
+  pending: { tone: 'ok', text: '留言已收到，通过审核后就会显示在这里。' },
+  rate: { tone: 'warn', text: `提交有点频繁，同一来源一小时最多 ${LIMITS.perHour} 条，稍后再试。` },
+  empty: { tone: 'warn', text: '内容不能为空。' },
+  'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字，精简一下再发。` },
+  'bad-request': { tone: 'warn', text: '请求来源校验没通过，已拒绝。' },
+};
+
+const code = Astro.url.searchParams.get('m') ?? '';
+const notice = notices[code];
+---
+
+<BaseLayout title={`留言板 · ${site.name}`} description={`给 ${site.name} 留言，可以匿名`}>
+  <section class="section">
+    <div class="section-head">
+      <h2>留言板</h2>
+      {entries.length > 0 && <span class="count">{entries.length}</span>}
+    </div>
+
+    <p class="intro">
+      想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示。
+      {authed && <a class="admin-hint" href="/admin">→ 去管理页</a>}
+    </p>
+
+    {
+      notice && (
+        <p class={`notice notice-${notice.tone}`} role="status">
+          {notice.text}
+        </p>
+      )
+    }
+
+    <form class="gb-form" method="post" action="/api/guestbook">
+      <div class="field">
+        <label for="nickname">昵称</label>
+        <input
+          id="nickname"
+          name="nickname"
+          type="text"
+          maxlength={LIMITS.nickname}
+          placeholder="留空即匿名"
+          autocomplete="nickname"
+        />
+      </div>
+
+      <div class="field">
+        <label for="body">想说的话</label>
+        <textarea
+          id="body"
+          name="body"
+          rows="4"
+          maxlength={LIMITS.body}
+          required
+          placeholder="说点什么吧……"></textarea>
+      </div>
+
+      {/* 蜜罐：真人看不见，机器人会填 */}
+      <div class="hp" aria-hidden="true">
+        <label for="website">网址</label>
+        <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <input type="hidden" name="ts" value={Date.now()} />
+
+      <div class="form-foot">
+        <p class="hint">{moderated ? '留言会先经过审核再显示' : '提交后立即显示'}</p>
+        <button type="submit">发送</button>
+      </div>
+    </form>
+
+    {
+      entries.length === 0 ? (
+        <p class="empty">还没有留言。第一条就留给你了。</p>
+      ) : (
+        <ol class="feed">
+          {entries.map((entry) => (
+            <li class="entry">
+              <div class="entry-head">
+                <span class="who">{entry.nickname ?? '匿名'}</span>
+                {entry.kind === 'diary' && <span class="badge">日记</span>}
+                <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+              </div>
+              <p class="text">{entry.body}</p>
+            </li>
+          ))}
+        </ol>
+      )
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .intro {
+    font-size: 0.9375rem;
+    color: var(--text-soft);
+    margin-bottom: 20px;
+  }
+
+  .admin-hint {
+    margin-left: 8px;
+    font-size: 0.875rem;
+  }
+
+  .notice {
+    margin-bottom: 18px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    border: 1px solid;
+  }
+
+  .notice-ok {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .notice-warn {
+    color: #a35a1f;
+    border-color: #d9a066;
+    background: rgba(217, 160, 102, 0.12);
+  }
+
+  :global(:root[data-theme='dark']) .notice-warn {
+    color: #e0b083;
+    border-color: #7a5630;
+    background: rgba(217, 160, 102, 0.1);
+  }
+
+  .gb-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .field input,
+  .field textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+
+  /* 昵称是短字段，占满整行会很怪 */
+  .field input {
+    max-width: 320px;
+  }
+
+  .field textarea {
+    min-height: 96px;
+    line-height: 1.6;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* 蜜罐字段：用定位移出视口，而不是 display:none —— 有些爬虫会跳过 display:none 的字段 */
+  .hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .form-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .hint {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .form-foot button {
+    flex: none;
+    padding: 9px 22px;
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    color: #fff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .form-foot button:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  .feed {
+    display: grid;
+    gap: 12px;
+    margin: 26px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .entry {
+    padding: 16px 18px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .entry-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .who {
+    color: var(--text);
+    font-weight: 550;
+    font-size: 0.875rem;
+  }
+
+  .badge {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+  }
+
+  .entry-head time {
+    margin-left: auto;
+  }
+
+  /* 保留用户输入的换行，同时保证内容被转义（Astro 默认转义）。
+     卡片按外壳宽度对齐，但正文本身收在可读行宽内。 */
+  .text {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-width: var(--measure);
+  }
+</style>

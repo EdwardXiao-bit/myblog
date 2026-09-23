@@ -1,0 +1,325 @@
+/* ==========================================================================
+   设计系统 —— 所有颜色 / 间距 / 字号都在这里改，页面里不要再写死颜色
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* 表面与文字 */
+  --bg: #fcfbf9;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f4f2ee;
+  --text: #1b1a18;
+  --text-soft: #55534e;
+  --text-muted: #85827b;
+  --border: #e7e3db;
+  --border-strong: #d6d1c7;
+
+  /* 点缀色（墨绿） */
+  --accent: #2f6f62;
+  --accent-hover: #245a4f;
+  --accent-soft: rgba(47, 111, 98, 0.09);
+
+  /* 形状与光影 */
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --shadow: 0 1px 2px rgba(27, 26, 24, 0.04), 0 10px 30px -18px rgba(27, 26, 24, 0.25);
+
+  /* 排版 */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Noto Sans SC",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
+
+  /* 布局 */
+  /* --maxw   页面外壳宽度：网格、列表、图片吃满它
+     --measure 正文可读宽度：纯文字块不要跟着外壳一起变宽，
+               中文一行超过 50 字左右就会明显难读 */
+  --maxw: 1080px;
+  --measure: 800px;
+  --gutter: clamp(20px, 4vw, 36px);
+
+  /* 头部高度，供滚动锚点定位避开吸顶栏 */
+  --header-h: 60px;
+}
+
+/* 跟随系统深色（用户没手动选过时生效） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #131211;
+    --bg-elev: #1c1b19;
+    --bg-sunken: #0e0d0c;
+    --text: #eceae5;
+    --text-soft: #b4b1a9;
+    --text-muted: #8b8880;
+    --border: #2c2a26;
+    --border-strong: #3b3832;
+    --accent: #6fb3a3;
+    --accent-hover: #8ac6b7;
+    --accent-soft: rgba(111, 179, 163, 0.13);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* 用户手动选了深色 */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #131211;
+  --bg-elev: #1c1b19;
+  --bg-sunken: #0e0d0c;
+  --text: #eceae5;
+  --text-soft: #b4b1a9;
+  --text-muted: #8b8880;
+  --border: #2c2a26;
+  --border-strong: #3b3832;
+  --accent: #6fb3a3;
+  --accent-hover: #8ac6b7;
+  --accent-soft: rgba(111, 179, 163, 0.13);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+/* ==========================================================================
+   基础
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-h) + 16px);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* ==========================================================================
+   布局工具类
+   ========================================================================== */
+
+.wrap {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+main {
+  flex: 1 0 auto;
+  padding-block: 8px 72px;
+}
+
+.section {
+  margin-top: 56px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-head h2 {
+  font-size: 1.0625rem;
+  letter-spacing: 0.02em;
+}
+
+/* 标题后的一条细线，延伸填满剩余宽度 */
+.section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.section-head .count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   通用组件
+   ========================================================================== */
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.chip {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+}
+
+/* 正文排版（P2 起给 Markdown 内容复用） */
+.prose {
+  max-width: var(--measure);
+}
+
+.prose > * + * {
+  margin-top: 1em;
+}
+
+.prose h2 {
+  font-size: 1.125rem;
+  margin-top: 1.8em;
+}
+
+.prose h3 {
+  font-size: 1rem;
+  margin-top: 1.5em;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.3em;
+}
+
+.prose li + li {
+  margin-top: 0.35em;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.1em 0.4em;
+}
+
+.prose pre {
+  background: var(--bg-sunken) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.prose blockquote {
+  margin: 1.2em 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-soft);
+}
+
+.prose img {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+/* ==========================================================================
+   动效偏好：尊重系统「减少动态效果」
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 打印：去掉装饰，留住内容 */
+@media print {
+  header,
+  footer,
+  .theme-toggle {
+    display: none !important;
+  }
+}

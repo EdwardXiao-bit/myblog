@@ -1,0 +1,115 @@
+---
+import { getCollection, render } from 'astro:content';
+import { Image } from 'astro:assets';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Gallery from '../../components/Gallery.astro';
+import { site } from '../../data/site';
+import { formatDate } from '../../utils/format';
+
+export async function getStaticPaths() {
+  const activities = await getCollection('activities');
+  return activities.map((activity) => ({
+    params: { slug: activity.id },
+    props: { activity },
+  }));
+}
+
+const { activity } = Astro.props;
+const { title, date, location, summary, cover, photos } = activity.data;
+const { Content } = await render(activity);
+---
+
+<BaseLayout
+  title={`${title} · ${site.name}`}
+  description={summary ?? title}
+  ogImage={`/og/activities/${activity.id}.png`}
+  ogType="article"
+>
+  <article class="activity-detail">
+    <a class="back" href="/activities">← 全部活动</a>
+
+    <header>
+      <h1>{title}</h1>
+      <p class="meta">
+        <time datetime={date.toISOString()}>{formatDate(date)}</time>
+        {location && <span> · {location}</span>}
+      </p>
+    </header>
+
+    {
+      cover && (
+        <div class="cover">
+          <Image
+            src={cover}
+            alt={title}
+            widths={[640, 1080, 1600]}
+            sizes="(max-width: 1120px) 100vw, 1008px"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+      )
+    }
+
+    {summary && <p class="lede">{summary}</p>}
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    {photos.length > 0 && <Gallery photos={photos} alt={title} />}
+  </article>
+</BaseLayout>
+
+<style>
+  .activity-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding-block: 40px 0;
+  }
+
+  .back {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    align-self: flex-start;
+  }
+
+  .back:hover {
+    color: var(--accent);
+  }
+
+  header h1 {
+    font-size: clamp(1.5rem, 4.5vw, 1.875rem);
+  }
+
+  .meta {
+    margin-top: 8px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cover {
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-sunken);
+  }
+
+  .cover :global(img) {
+    width: 100%;
+    height: auto;
+    display: block;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  .lede {
+    font-size: 1.0625rem;
+    color: var(--text-soft);
+    border-left: 2px solid var(--accent);
+    padding-left: 14px;
+    max-width: var(--measure);
+  }
+</style>

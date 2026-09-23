@@ -1,0 +1,499 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import { adminConfigured, adminCookie, verifyToken } from '../lib/auth';
+import { LIMITS, listPending, listRecent, stats } from '../lib/guestbook';
+import { formatDate } from '../utils/format';
+
+const configured = adminConfigured();
+const authed = configured && verifyToken(Astro.cookies.get(adminCookie.name)?.value);
+
+const pending = authed ? listPending() : [];
+const recent = authed ? listRecent(25) : [];
+const counts = authed ? stats() : null;
+
+const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
+  'bad-password': { tone: 'warn', text: '密码不对。' },
+  'need-auth': { tone: 'warn', text: '登录状态已过期，请重新登录。' },
+  'signed-in': { tone: 'ok', text: '登录成功。' },
+  empty: { tone: 'warn', text: '内容不能为空。' },
+  'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字。` },
+  'diary-public': { tone: 'ok', text: '日记已发布，留言板上能看到。' },
+  'diary-private': { tone: 'ok', text: '日记已保存为「仅自己可见」。' },
+  done: { tone: 'ok', text: '操作完成。' },
+  'bad-request': { tone: 'warn', text: '请求不合法，已忽略。' },
+};
+
+const code = Astro.url.searchParams.get('m') ?? '';
+const notice = notices[code];
+
+const statusLabel: Record<string, string> = {
+  published: '已公开',
+  pending: '待审核',
+  private: '仅自己',
+  rejected: '已拒绝',
+};
+---
+
+<BaseLayout title={`管理 · ${site.name}`} description="留言审核与日记">
+  <section class="section">
+    <div class="section-head">
+      <h2>管理</h2>
+      {
+        authed && (
+          <form method="post" action="/api/admin" class="logout">
+            <input type="hidden" name="action" value="logout" />
+            <button type="submit">退出登录</button>
+          </form>
+        )
+      }
+    </div>
+
+    {
+      notice && (
+        <p class={`notice notice-${notice.tone}`} role="status">
+          {notice.text}
+        </p>
+      )
+    }
+
+    {
+      !configured ? (
+        <div class="setup">
+          <p>
+            <strong>还没设置管理密码。</strong>
+          </p>
+          <p>
+            在项目根目录新建 <code>.env</code> 文件（可以直接复制 <code>.env.example</code>），写入：
+          </p>
+          <pre><code>ADMIN_PASSWORD=你自己的密码</code></pre>
+          <p>保存后重启 <code>npm run dev</code> 即可。</p>
+        </div>
+      ) : !authed ? (
+        <form class="login" method="post" action="/api/admin">
+          <input type="hidden" name="action" value="login" />
+          <div class="field">
+            <label for="password">管理密码</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit">登录</button>
+        </form>
+      ) : (
+        <>
+          {counts && (
+            <ul class="stats">
+              <li>
+                <span class="n">{counts.published}</span>
+                <span class="k">已公开</span>
+              </li>
+              <li>
+                <span class="n">{counts.pending}</span>
+                <span class="k">待审核</span>
+              </li>
+              <li>
+                <span class="n">{counts.private}</span>
+                <span class="k">仅自己</span>
+              </li>
+              <li>
+                <span class="n">{counts.total}</span>
+                <span class="k">总计</span>
+              </li>
+            </ul>
+          )}
+
+          <h3 class="block-title">写日记</h3>
+          <form class="diary" method="post" action="/api/admin">
+            <input type="hidden" name="action" value="diary" />
+            <div class="field">
+              <textarea
+                name="body"
+                rows="5"
+                maxlength={LIMITS.body}
+                required
+                placeholder="今天发生了什么……"
+              />
+            </div>
+            <div class="diary-foot">
+              <div class="visits">
+                <label>
+                  <input type="radio" name="visibility" value="public" checked />
+                  公开（留言板上可见）
+                </label>
+                <label>
+                  <input type="radio" name="visibility" value="private" />
+                  仅自己可见
+                </label>
+              </div>
+              <button type="submit">保存</button>
+            </div>
+          </form>
+
+          <h3 class="block-title">
+            待审核 <span class="pill">{pending.length}</span>
+          </h3>
+          {
+            pending.length === 0 ? (
+              <p class="empty">没有待审核的留言。</p>
+            ) : (
+              <ul class="queue">
+                {pending.map((entry) => (
+                  <li>
+                    <div class="q-head">
+                      <span class="who">{entry.nickname ?? '匿名'}</span>
+                      <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+                    </div>
+                    <p class="text">{entry.body}</p>
+                    <form method="post" action="/api/admin" class="actions">
+                      <input type="hidden" name="action" value="moderate" />
+                      <input type="hidden" name="id" value={entry.id} />
+                      <button name="op" value="approve" class="ok">通过</button>
+                      <button name="op" value="reject">拒绝</button>
+                      <button name="op" value="delete" class="danger">删除</button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+
+          <h3 class="block-title">最近条目</h3>
+          {
+            recent.length === 0 ? (
+              <p class="empty">还没有任何留言或日记。</p>
+            ) : (
+              <ul class="recent">
+                {recent.map((entry) => (
+                  <li>
+                    <div class="q-head">
+                      <span class={`status status-${entry.status}`}>{statusLabel[entry.status]}</span>
+                      <span class="who">
+                        {entry.kind === 'diary' ? '日记' : (entry.nickname ?? '匿名')}
+                      </span>
+                      <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+                    </div>
+                    <p class="text">{entry.body}</p>
+                    <form method="post" action="/api/admin" class="actions">
+                      <input type="hidden" name="action" value="moderate" />
+                      <input type="hidden" name="id" value={entry.id} />
+                      {entry.status !== 'published' && (
+                        <button name="op" value="approve" class="ok">
+                          公开
+                        </button>
+                      )}
+                      <button name="op" value="delete" class="danger">
+                        删除
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </>
+      )
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .logout button,
+  .actions button,
+  .login button,
+  .diary button {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 5px 14px;
+    color: var(--text-soft);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .logout button:hover,
+  .actions button:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .logout {
+    margin-left: auto;
+  }
+
+  .notice {
+    margin-bottom: 18px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    border: 1px solid;
+  }
+
+  .notice-ok {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .notice-warn {
+    color: #a35a1f;
+    border-color: #d9a066;
+    background: rgba(217, 160, 102, 0.12);
+  }
+
+  :global(:root[data-theme='dark']) .notice-warn {
+    color: #e0b083;
+    border-color: #7a5630;
+    background: rgba(217, 160, 102, 0.1);
+  }
+
+  .setup,
+  .login,
+  .diary {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .setup p {
+    font-size: 0.9375rem;
+    color: var(--text-soft);
+  }
+
+  .setup pre {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+  }
+
+  .login {
+    max-width: 380px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .field input,
+  .field textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+
+  .field textarea {
+    min-height: 110px;
+    line-height: 1.6;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .login button,
+  .diary button {
+    align-self: flex-start;
+    padding: 9px 22px;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .login button:hover,
+  .diary button:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 0 0 28px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .stats li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .stats .n {
+    font-size: 1.375rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stats .k {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .block-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 30px 0 14px;
+    font-size: 0.9375rem;
+  }
+
+  .pill {
+    padding: 1px 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  .diary-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .visits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 0.875rem;
+    color: var(--text-soft);
+  }
+
+  .visits label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .queue,
+  .recent {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .queue > li,
+  .recent > li {
+    padding: 15px 18px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .q-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .q-head time {
+    margin-left: auto;
+  }
+
+  .who {
+    color: var(--text);
+    font-weight: 550;
+  }
+
+  .status {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .status-published {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .status-pending {
+    color: #a35a1f;
+    border-color: #d9a066;
+  }
+
+  .text {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    /* 卡片按外壳宽度对齐，正文收在可读行宽内 */
+    max-width: var(--measure);
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .actions .ok {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .actions .danger {
+    color: #b04a3a;
+    border-color: rgba(176, 74, 58, 0.5);
+  }
+
+  .actions .danger:hover {
+    color: #fff;
+    background: #b04a3a;
+    border-color: #b04a3a;
+  }
+
+  @media (max-width: 520px) {
+    .stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

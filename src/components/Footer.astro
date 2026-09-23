@@ -1,0 +1,58 @@
+---
+import { site } from '../data/site';
+import { isExternal, normalizeHref } from '../utils/link';
+
+const year = new Date().getFullYear();
+const links = site.socials
+  .map((s) => ({ ...s, href: normalizeHref(s.href) }))
+  .filter((s) => s.href.length > 0);
+---
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <p>© {year} {site.name}</p>
+
+    <nav class="footer-links" aria-label="页脚链接">
+      {
+        links.map((s) => (
+          <a href={s.href} target={isExternal(s.href) ? '_blank' : undefined} rel="me noopener">
+            {s.label}
+          </a>
+        ))
+      }
+      <a href="/rss.xml">RSS</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    flex: none;
+    border-top: 1px solid var(--border);
+    padding-block: 22px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-links a {
+    color: var(--text-muted);
+  }
+
+  .footer-links a:hover {
+    color: var(--accent);
+  }
+</style>

@@ -1,0 +1,271 @@
+---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import { isExternal, normalizeHref } from '../utils/link';
+
+const initial = site.name.trim().slice(0, 1);
+const hasMeta = Boolean(site.location || site.email);
+
+// 配置里写了头像路径、但文件还没放上去时退回名字首字，避免首页出现裂图
+const avatarFile = site.avatar
+  ? join(process.cwd(), 'public', site.avatar.replace(/^\//, ''))
+  : '';
+const hasAvatar = avatarFile.length > 0 && existsSync(avatarFile);
+
+const socials = site.socials
+  .map((s) => ({ ...s, href: normalizeHref(s.href) }))
+  .filter((s) => s.href.length > 0);
+---
+
+<BaseLayout title={`${site.name} · 个人主页`} description={site.description}>
+  <section class="hero">
+    <div class="avatar" aria-hidden="true">
+      {hasAvatar ? <img src={site.avatar} alt="" /> : <span>{initial}</span>}
+    </div>
+
+    <div class="hero-text">
+      <h1>{site.name}</h1>
+      <p class="tagline">{site.tagline}</p>
+
+      {
+        hasMeta && (
+          <p class="meta">
+            {site.location && <span>{site.location}</span>}
+            {site.location && site.email && <span class="sep">·</span>}
+            {site.email && <a href={`mailto:${site.email}`}>{site.email}</a>}
+          </p>
+        )
+      }
+
+      {
+        socials.length > 0 && (
+          <ul class="socials">
+            {socials.map((s) => (
+              <li>
+                <a
+                  href={s.href}
+                  target={isExternal(s.href) ? '_blank' : undefined}
+                  rel="me noopener"
+                >
+                  {s.label}
+                  <span class="arrow" aria-hidden="true">↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </section>
+
+  {
+    site.about.length > 0 && (
+      <section class="section" id="about">
+        <div class="section-head">
+          <h2>关于我</h2>
+        </div>
+        <div class="prose">
+          {site.about.map((p) => (
+            <p>{p}</p>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    site.experience.length > 0 && (
+      <section class="section" id="experience">
+        <div class="section-head">
+          <h2>经历</h2>
+          <span class="count">{site.experience.length}</span>
+        </div>
+        <ol class="timeline">
+          {site.experience.map((item) => (
+            <li class="timeline-item">
+              <div class="timeline-period">{item.period}</div>
+              <div class="timeline-body">
+                <h3>{item.title}</h3>
+                {item.org && <p class="org">{item.org}</p>}
+                {item.desc && <p class="desc">{item.desc}</p>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  {
+    site.skills.length > 0 && (
+      <section class="section" id="skills">
+        <div class="section-head">
+          <h2>关键词</h2>
+        </div>
+        <ul class="chips">
+          {site.skills.map((s) => (
+            <li class="chip">{s}</li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<style>
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-block: 56px 8px;
+  }
+
+  .avatar {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 1.875rem;
+    font-weight: 600;
+    overflow: hidden;
+    user-select: none;
+    border: 1px solid var(--border);
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .hero-text h1 {
+    font-size: clamp(1.75rem, 5vw, 2.125rem);
+  }
+
+  .tagline {
+    margin-top: 8px;
+    font-size: 1.0625rem;
+    color: var(--text-soft);
+    max-width: 34em;
+  }
+
+  .meta {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .meta .sep {
+    color: var(--border-strong);
+  }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .socials a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 13px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-elev);
+    font-size: 0.875rem;
+    color: var(--text-soft);
+    transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+
+  .socials a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .socials .arrow {
+    font-size: 0.75em;
+    opacity: 0.6;
+  }
+
+  /* 经历时间线 */
+  .timeline {
+    display: grid;
+    gap: 26px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .timeline-period {
+    padding-top: 2px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeline-body {
+    position: relative;
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
+    /* 经历的文字同样保持在可读行宽内，不要让描述拉成一整行 */
+    max-width: var(--measure);
+  }
+
+  .timeline-body::before {
+    content: '';
+    position: absolute;
+    left: -3.5px;
+    top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+
+  .timeline-body h3 {
+    font-size: 1rem;
+  }
+
+  .timeline-body .org {
+    margin-top: 2px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .timeline-body .desc {
+    margin-top: 7px;
+    font-size: 0.9375rem;
+    color: var(--text-soft);
+  }
+
+  @media (max-width: 560px) {
+    .hero {
+      padding-block: 36px 4px;
+    }
+
+    .timeline-item {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+</style>

@@ -1,0 +1,118 @@
+---
+import ThemeToggle from './ThemeToggle.astro';
+import { site } from '../data/site';
+
+const nav = [
+  { href: '/', label: '首页' },
+  { href: '/projects', label: '项目' },
+  { href: '/activities', label: '活动' },
+  { href: '/guestbook', label: '留言板' },
+];
+
+// 去掉结尾斜杠再比较，/projects/ 和 /projects 都算命中
+const current = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const isActive = (href: string) => (href === '/' ? current === '/' : current.startsWith(href));
+---
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="/">{site.name}</a>
+
+    <nav class="nav" aria-label="主导航">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <ThemeToggle />
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* 支持的浏览器上做毛玻璃，不支持的退回纯色 */
+  @supports (backdrop-filter: blur(8px)) {
+    .site-header {
+      background: color-mix(in srgb, var(--bg) 80%, transparent);
+      backdrop-filter: saturate(180%) blur(12px);
+    }
+  }
+
+  .header-inner {
+    min-height: var(--header-h);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .brand {
+    font-weight: 650;
+    font-size: 0.9375rem;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .brand:hover {
+    color: var(--accent);
+  }
+
+  .nav {
+    margin-left: auto;
+  }
+
+  .nav ul {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 7px;
+    font-size: 0.875rem;
+    color: var(--text-soft);
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .nav a:hover {
+    background: var(--bg-sunken);
+    color: var(--text);
+  }
+
+  .nav a[aria-current='page'] {
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 550;
+  }
+
+  @media (max-width: 480px) {
+    .header-inner {
+      gap: 10px;
+    }
+
+    .nav a {
+      padding: 5px 7px;
+      font-size: 0.8125rem;
+    }
+  }
+</style>

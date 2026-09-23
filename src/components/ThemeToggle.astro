@@ -1,0 +1,99 @@
+---
+/**
+ * 主题切换：默认跟随系统，点一下才写入明确偏好并记住。
+ */
+---
+
+<button
+  id="theme-toggle"
+  class="theme-toggle"
+  type="button"
+  aria-label="切换深色 / 浅色模式"
+  title="切换深色 / 浅色模式"
+>
+  <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  </svg>
+  <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="1" x2="12" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="23" />
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <line x1="1" y1="12" x2="3" y2="12" />
+    <line x1="21" y1="12" x2="23" y2="12" />
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+</button>
+
+<style>
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .theme-toggle:hover {
+    background: var(--bg-sunken);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .icon {
+    width: 17px;
+    height: 17px;
+    grid-area: 1 / 1;
+  }
+
+  /* 默认（浅色）：显示月亮，表示「点一下切到深色」 */
+  .icon-sun {
+    display: none;
+  }
+
+  /* 系统深色且用户没手动选浅色 */
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .icon-sun {
+      display: block;
+    }
+    :global(:root:not([data-theme='light'])) .icon-moon {
+      display: none;
+    }
+  }
+
+  /* 用户手动选了深色（放在媒体查询之后，优先级相同时后者生效） */
+  :global(:root[data-theme='dark']) .icon-sun {
+    display: block;
+  }
+  :global(:root[data-theme='dark']) .icon-moon {
+    display: none;
+  }
+</style>
+
+<script>
+  const btn = document.getElementById('theme-toggle');
+
+  btn?.addEventListener('click', () => {
+    const root = document.documentElement;
+    const isDark =
+      root.dataset.theme === 'dark' ||
+      (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    const next = isDark ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      /* 隐私模式下写不了 localStorage，忽略即可 */
+    }
+  });
+</script>

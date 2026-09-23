@@ -1,0 +1,22 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# npm cache（本机沙箱需要把缓存放在工作区内）
+.npm-cache/
+
+# 数据库（留言 / 日记都在这，别提交）
+data/*.db
+data/*.db-*
+
+# 环境变量
+.env
+.env.production
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,41 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { site } from '../data/site';
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title, 'zh-CN')
+);
+---
+
+<BaseLayout title={`项目 · ${site.name}`} description={`${site.name} 做过的项目`}>
+  <section class="section">
+    <div class="section-head">
+      <h2>我的项目</h2>
+      {projects.length > 0 && <span class="count">{projects.length}</span>}
+    </div>
+
+    {
+      projects.length === 0 ? (
+        <p class="empty">
+          还没有项目。在 <code>src/content/projects/</code> 里新建一个 <code>.md</code> 文件即可。
+        </p>
+      ) : (
+        <div class="project-grid">
+          {projects.map((project) => (
+            <ProjectCard project={project} />
+          ))}
+        </div>
+      )
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+</style>
