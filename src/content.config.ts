@@ -41,6 +41,11 @@ const activities = defineCollection({
       cover: image().optional(),
       /** 照片组，写 ['./photo-1.jpg', './photo-2.jpg'] */
       photos: z.array(image()).default([]),
+      /**
+       * 每张照片的说明，和 photos 按顺序一一对应；可以少写或不写。
+       * 照片方向不一致时（横图混竖图），有说明读起来清楚很多。
+       */
+      captions: z.array(z.string()).default([]),
       /** 排序权重，数字越小越靠前 */
       order: z.number().default(100),
     }),

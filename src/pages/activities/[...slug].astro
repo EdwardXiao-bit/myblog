@@ -15,7 +15,7 @@ export async function getStaticPaths() {
 }
 
 const { activity } = Astro.props;
-const { title, date, location, summary, cover, photos } = activity.data;
+const { title, date, location, summary, cover, photos, captions } = activity.data;
 const { Content } = await render(activity);
 ---
 
@@ -57,7 +57,7 @@ const { Content } = await render(activity);
       <Content />
     </div>
 
-    {photos.length > 0 && <Gallery photos={photos} alt={title} />}
+    {photos.length > 0 && <Gallery photos={photos} captions={captions} alt={title} />}
   </article>
 </BaseLayout>
 
