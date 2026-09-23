@@ -4,5 +4,5 @@ summary: 把碎掉的陶瓷片自动拼回去：多模态特征（几何 + FPFH 
 href: https://github.com/EdwardXiao-bit/Ceramic_Reconstruction
 tags: ['Python', 'PyTorch', '三维重建', '计算机视觉']
 period: '2026 上半年'
-order: 1
+order: 2
 ---

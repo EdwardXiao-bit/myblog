@@ -4,5 +4,5 @@ summary: 给 DeepSeek Harness 回复里的命令行代码块加一个「运行�
 href: https://github.com/EdwardXiao-bit/dsh-run-button
 tags: ['JavaScript', 'DSH 插件', '开源']
 period: '2026 — 现在'
-order: 2
+order: 3
 ---

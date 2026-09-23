@@ -77,7 +77,7 @@ export const site: SiteConfig = {
   // ↓ 只陈述做过的事，不写「方向 / 兴趣领域」——方向还没定，不替你表态
   about: [
     '四川大学计算机科学与技术专业大三在读，在成都。做过古陶瓷碎片的深度学习复原，也写各种小工具。',
-    '最近在给 DeepSeek Harness 写插件，也会把踩过的坑整理成文档。',
+    '最近在探索AI Agent， 并给 DeepSeek Harness 写插件。',
   ],
 
   experience: [
@@ -101,10 +101,11 @@ export const site: SiteConfig = {
 
   // ← 爱好，显示在「经历」下面。Steam / 视频号这类只能写 ID，没有公开链接
   hobbies: [
-    { emoji: '🚲', name: '骑行' },
+    { emoji: '🚲', name: '骑行', note: 'XDS Hero 300' },
     { emoji: '🎮', name: '游戏', note: 'Steam 好友 ID：1421154588（EdwardDavis）' },
     { emoji: '🎹', name: '钢琴', note: '微信视频号：EdwardDavisXiao' },
-    { emoji: '🏊‍♀️', name: '游泳' },
+    { emoji: '🏊‍♀️', name: '游泳', },
+    { emoji: '🎶', name: '听歌', note: '古典，摇滚，爵士，伍佰，...'},
   ],
 
   // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
