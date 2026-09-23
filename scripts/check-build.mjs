@@ -218,6 +218,14 @@ if (singleWidth && !leftoverTextWidth) {
   fail(`容器宽度配置不对：单一宽度=${singleWidth} 残留分宽=${leftoverTextWidth}`);
 }
 
+// 预留滚动条位置：否则「要滚动的页面」会比「不用滚动的页面」整体左移半个滚动条
+const hasGutter = /scrollbar-gutter:stable/.test(normalizedCss);
+if (hasGutter) {
+  console.log('OK   已预留滚动条宽度（长页面不会比短页面左移）');
+} else {
+  fail('缺少 scrollbar-gutter: stable —— 有无滚动条会让页面位置不一致');
+}
+
 // ---------- 7) SEO / 分享卡片 / 订阅 ----------
 console.log('\n--- SEO / 分享卡片 / 订阅 ---');
 

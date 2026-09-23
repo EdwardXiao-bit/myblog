@@ -92,6 +92,10 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 16px);
   -webkit-text-size-adjust: 100%;
+  /* 不管当前页有没有滚动条，都预留同样宽度的位置。
+     否则长页面（有滚动条）会比短页面整体左移半个滚动条宽度——
+     实测同一个首页，需要滚动时内容在 189px，不需要时在 196px，差 7px。 */
+  scrollbar-gutter: stable;
 }
 
 body {
