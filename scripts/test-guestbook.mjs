@@ -466,7 +466,28 @@ section('17. 点赞');
     body: new URLSearchParams({ id: String(id) }),
   });
   const again = await second.json();
-  check('重复点赞不重复计数', again.count === payload.count, `${payload.count} -> ${again.count}`);
+  check(
+    '再点一下取消点赞',
+    again.count === payload.count - 1 && again.liked === false,
+    `${payload.count} -> ${again.count}, liked=${again.liked}`
+  );
+  check(
+    '取消后数据库里没有这条记录',
+    count('select count(*) as n from likes where entry_id = ?', id) === before
+  );
+
+  // 取消了还能再点回来
+  const third = await fetch(BASE + '/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+    body: new URLSearchParams({ id: String(id) }),
+  });
+  const restored = await third.json();
+  check(
+    '取消后还能再点赞',
+    restored.count === before + 1 && restored.liked === true,
+    `${restored.count}, liked=${restored.liked}`
+  );
 
   // 未审核的不允许点赞
   const pendingRow = db().prepare("select id from entries where status='pending' limit 1").get();

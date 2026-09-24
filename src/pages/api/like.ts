@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { addLike, getEntry, hashIp } from '../../lib/guestbook';
+import { getEntry, hashIp, toggleLike } from '../../lib/guestbook';
 
 /**
  * 点赞。
@@ -47,7 +47,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     // 拿不到地址就退化成全局去重，宁可少算也不要多算
   }
 
-  addLike(id, hashIp(ip));
+  toggleLike(id, hashIp(ip));
 
   // 页面上的脚本会带 accept: application/json 过来，好就地更新数字；
   // 没脚本的普通表单提交则照常跳回原处。

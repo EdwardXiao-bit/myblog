@@ -417,13 +417,30 @@ export function removeReply(replyId: number): string[] {
 
 // ---------- 点赞 ----------
 
-/** 点一个赞；已经点过则返回 false（不重复计数） */
-export function addLike(entryId: number, ipHash: string): boolean {
-  const info = getDb()
-    .prepare(`insert or ignore into likes (entry_id, ip_hash, created_at) values (?, ?, ?)`)
-    .run(entryId, ipHash, new Date().toISOString());
+/**
+ * 点赞 / 取消点赞。
+ * 和表情反应一样是**可切换**的：已经点过就取消（再点一下收回来）。
+ * 返回 true 表示这次是点赞，false 表示是取消。
+ */
+export function toggleLike(entryId: number, ipHash: string): boolean {
+  const db = getDb();
 
-  return Number(info.changes) > 0;
+  const existing = db
+    .prepare(`select 1 as hit from likes where entry_id = ? and ip_hash = ?`)
+    .get(entryId, ipHash);
+
+  if (existing) {
+    db.prepare(`delete from likes where entry_id = ? and ip_hash = ?`).run(entryId, ipHash);
+    return false;
+  }
+
+  db.prepare(`insert into likes (entry_id, ip_hash, created_at) values (?, ?, ?)`).run(
+    entryId,
+    ipHash,
+    new Date().toISOString()
+  );
+
+  return true;
 }
 
 // ---------- 表情反应 ----------

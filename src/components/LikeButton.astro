@@ -19,7 +19,7 @@ const { entry, back } = Astro.props;
     type="submit"
     class={entry.likedByMe ? 'liked' : ''}
     aria-pressed={entry.likedByMe ? 'true' : 'false'}
-    title={entry.likedByMe ? '你点过赞了' : '点个赞'}
+    title={entry.likedByMe ? '再点一下取消' : '点个赞'}
   >
     <span aria-hidden="true">♥</span>
     <span class="like-count">{entry.likeCount}</span>
@@ -60,11 +60,6 @@ const { entry, back } = Astro.props;
     background: rgba(192, 57, 43, 0.08);
   }
 
-  .like button:disabled {
-    cursor: default;
-    opacity: 0.75;
-  }
-
   .like-count {
     font-variant-numeric: tabular-nums;
   }
@@ -93,7 +88,7 @@ const { entry, back } = Astro.props;
         if (count) count.textContent = String(data.count);
         button.classList.toggle('liked', data.liked);
         button.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
-        button.disabled = true;
+        button.title = data.liked ? '再点一下取消' : '点个赞';
       } catch {
         // 出问题就退回普通表单提交，至少让用户能点上
         form.submit();
