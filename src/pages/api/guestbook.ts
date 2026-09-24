@@ -15,6 +15,7 @@ import {
   removeImage,
   saveImage,
 } from '../../lib/storage';
+import { clientIp } from '../../lib/client-ip';
 
 // 需要服务端处理，所以明确退出预渲染
 export const prerender = false;
@@ -75,7 +76,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
   let ip = 'unknown';
   try {
-    ip = clientAddress ?? 'unknown';
+    ip = clientIp(request, clientAddress);
   } catch {
     // 某些部署环境拿不到客户端地址，退化成不区分来源
   }

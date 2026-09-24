@@ -1,0 +1,81 @@
+# 一条命令起站：docker compose up -d --build
+#
+#   app   —— Astro 的 standalone Node 服务器（只在内网，不直接对外）
+#   caddy —— 反向代理 + 自动申请/续期 HTTPS 证书
+#
+# 上生产前务必知道的两点：
+#
+#  1. SITE_URL 是**构建期**变量（canonical / RSS / sitemap / 分享卡片都用它），
+#     所以写在 build.args 里。运行时再改是没用的，必须重新 build。
+#
+#  2. 用了反向代理就必须 TRUST_PROXY=1，并且让 Caddy **覆盖** X-Forwarded-For。
+#     否则 Astro 取到的客户端地址永远是代理容器，全站访客共用一个 IP 哈希：
+#     限流从「每人每小时 5 条」变成「全站每小时 5 条」，点赞也会互相顶掉。
+#     原因和规则写在 src/lib/client-ip.ts 里。
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        SITE_URL: ${SITE_URL:?请在 .env 里设置 SITE_URL，例如 https://your-domain.com}
+    image: myblog-app:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4321
+      # 如实告知应用「我在反向代理后面」，否则限流会把所有人当成同一个人
+      TRUST_PROXY: "1"
+    volumes:
+      # 数据库 + 上传图片，容器重建不能丢
+      - ./data:/app/data
+      # 备份输出（scripts/backup.mjs 默认写这里）
+      - ./backups:/backups
+    healthcheck:
+      # node:24-slim 里没有 curl/wget，用 node 自己探活
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4321/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [web]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      # 有域名就填域名（Caddy 自动上 HTTPS）；没有就留空，用 http://IP 访问
+      SITE_DOMAIN: ${SITE_DOMAIN:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [web]
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:

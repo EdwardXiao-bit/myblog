@@ -6,6 +6,10 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# shell 脚本强制 LF：即使被直接拷到 Linux（不走 git），也不能带 CR，
+# 否则会报 "$'\r': command not found" 这类莫名其妙的错
+*.sh text eol=lf
+
 # 二进制文件不要碰
 *.jpg binary
 *.jpeg binary

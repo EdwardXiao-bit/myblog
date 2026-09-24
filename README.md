@@ -260,17 +260,76 @@ npm run test:migration
 
 | 变量 | 什么时候读 | 说明 |
 | --- | --- | --- |
-| `ADMIN_PASSWORD` | 运行时 | 管理页密码，至少 6 位。**必须改掉默认值** |
-| `GUESTBOOK_SALT` | 运行时 | 计算访客 IP 哈希用的盐，随便一串随机字符 |
+| `ADMIN_PASSWORD` | 运行时 | 管理页密码，建议 12 位以上。**必须改掉默认值** |
+| `GUESTBOOK_SALT` | 运行时 | 计算访客 IP 哈希用的盐。**上线后别改**，改了等于重置所有人的点赞去重 |
 | `MODERATION` | 运行时 | `on`（默认）/ `off` |
 | `GUESTBOOK_DB` | 运行时 | 数据库路径，默认 `data/guestbook.db` |
 | `HOST` / `PORT` | 运行时 | 监听地址与端口，默认 `localhost:4321`；容器里用 `0.0.0.0` |
+| `TRUST_PROXY` | 运行时 | **放在反向代理后面时必须设为 `1`**，详见下一节 |
 | `SITE_URL` | **构建时** | 真实域名。影响 canonical、分享卡片、RSS、sitemap |
+| `SITE_DOMAIN` | 运行时 | Caddy 对外提供的域名；留空则用 `http://IP` |
+| `ACME_EMAIL` | 运行时 | 申请 HTTPS 证书的联系邮箱（可选） |
 
 > `SITE_URL` 是构建时变量——它会写进 sitemap 和 RSS 的绝对地址里，改了必须重新构建。
 > 其余变量都是运行时读取的，改完重启进程即可（这也意味着密码不会被烤进构建产物）。
 
-### 方式一：一台服务器
+### ⚠️ 反向代理后面必须开 TRUST_PROXY
+
+这是这个项目最容易**悄悄踩坏**的一个点，单独说：
+
+Astro 的 node 适配器取客户端地址的方式是 `incomingRequest.socket.remoteAddress`
+（见 `node_modules/astro/dist/vite-plugin-app/handle-request.js`），**它不解析 `X-Forwarded-For`**。
+所以只要前面挂了 Caddy / nginx，而你又没告诉应用「我在代理后面」，那么所有访客的地址
+都会是代理容器的地址，于是：
+
+- 限流从「**每人**每小时 5 条」退化成「**全站**每小时 5 条」；
+- 点赞去重键是 `(entry_id, ip_hash)`，于是**一个人点赞 = 所有人都点过了**。
+
+两种情况都不报错，只是「莫名其妙不好用」。修法是两件事一起做：
+
+1. 应用侧设 `TRUST_PROXY=1`（`docker-compose.yml` 里已经设好），
+   它会取 `X-Forwarded-For` 的**最后一段**——见 `src/lib/client-ip.ts`；
+2. 代理侧**覆盖**而不是追加这个头（`Caddyfile` 里写了
+   `header_up X-Forwarded-For {http.request.remote.host}`）。如果用默认的追加行为，
+   访客可以自己塞一个 IP 绕过限流。
+
+`deploy.sh` 会自动验证这一点（它跑 `smoke-prod --expect-proxy`，断言两个不同访客
+得到不同的 `ip_hash`）。手工验证：
+
+```bash
+docker compose exec -T app node scripts/smoke-prod.mjs http://127.0.0.1:4321 --write --expect-proxy
+```
+
+> 反过来说：**如果站点直接暴露在公网（没有反向代理），就不要开 `TRUST_PROXY`**，
+> 否则任何人都能伪造 IP 绕开限流。
+
+### 方式一：Docker Compose（推荐，一条命令）
+
+```bash
+cp .env.example .env
+vim .env            # 至少改 SITE_URL / ADMIN_PASSWORD / GUESTBOOK_SALT
+./deploy.sh         # 构建 + 启动 + 自检 + 立即备份并验证可恢复
+```
+
+`deploy.sh` 不是「跑起来就说成功」，它会依次做：
+
+1. 前置检查：缺 `.env`、`SITE_URL` 还是 `example.com`、密码还是 `change-me*` —— 直接拒绝部署；
+2. `docker compose build`（`SITE_URL` 在这一步写进产物）；
+3. `up -d` 并轮询 `/healthz`，60 次探测还不健康就打印最后 50 行日志并失败退出；
+4. 跑生产冒烟（含反代 IP 区分验证），任一项失败就报错退出；
+5. 立刻备份一次并跑恢复演练。
+
+之后更新站点：
+
+```bash
+./deploy.sh --pull
+```
+
+`docker-compose.yml` 里两个服务：`app`（只在内网，不直接对外）和 `caddy`（自动申请并续期
+HTTPS 证书）。没有域名时把 `.env` 里的 `SITE_DOMAIN` 留空，就用 `http://IP` 访问；
+买了域名填上再跑一次 `deploy.sh` 即可切到 HTTPS。
+
+### 方式二：不用 Docker，直接跑 Node
 
 ```bash
 npm ci
@@ -282,45 +341,92 @@ HOST=0.0.0.0 PORT=4321 \
 node dist/server/entry.mjs
 ```
 
-用 systemd 或 pm2 把它跑成常驻服务，前面用 Caddy / nginx 做 HTTPS 反向代理。
+用 systemd 或 pm2 跑成常驻服务，前面用 Caddy / nginx 做 HTTPS 反向代理。
+**这种跑法也要记得 `TRUST_PROXY=1`**（见上一节），否则限流会失效。
 
-### 方式二：Docker
+系统自带的 systemd 单元最省事（不用装 pm2）：
 
-```bash
-docker build --build-arg SITE_URL=https://your-domain.com -t myblog .
+```ini
+# /etc/systemd/system/myblog.service
+[Unit]
+Description=myblog
+After=network.target
 
-docker run -d --name myblog -p 4321:4321 \
-  -e ADMIN_PASSWORD='你的密码' \
-  -e GUESTBOOK_SALT='一串随机字符' \
-  -v myblog-data:/app/data \
-  myblog
+[Service]
+WorkingDirectory=/opt/myblog
+EnvironmentFile=/opt/myblog/.env
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=4321 TRUST_PROXY=1
+ExecStart=/usr/bin/node dist/server/entry.mjs
+Restart=always
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-`-v myblog-data:/app/data` 不能省：留言和日记都在那个 SQLite 文件里，
-不挂卷的话容器一重建数据就没了。
+> 诚实说明：`docker-compose.yml` 和 `Caddyfile` 的**语法与逻辑经过审查，但没有在真实
+> Docker 环境里跑过**（本机没装 Docker）。`deploy.sh` 的 bash 语法做了 `bash -n` 检查。
+> 第一次部署时留意构建与卷挂载；`deploy.sh` 的自检会把「站起来了但其实是坏的」这种情况挡下来。
 
-> 诚实说明：这个 Dockerfile 的构建命令（`npm ci` → `npm run build` → `node dist/server/entry.mjs`）
-> 每一步都在本机验证过，但**没有在真实 Docker 环境里跑过**（当时机器上没装 Docker）。
-> 第一次用的时候留意一下，有问题多半出在基础镜像或卷挂载上。
+### 备份与恢复
 
-### 备份
-
-整个数据库就是一个文件，直接拷走即可：
+**不要用 `cp` 直接拷 `.db` 文件**：数据库开了 WAL，直接拷可能拿到「还没合并」的旧快照。
+用自带脚本，它走 `VACUUM INTO`（事务一致的读快照），并同时备份上传的图片：
 
 ```bash
-cp data/guestbook.db ~/backup/guestbook-$(date +%F).db
+# 容器里跑（推荐，容器里有 node）
+docker compose exec -T app node scripts/backup.mjs
+
+# 或者本地
+npm run backup
 ```
 
-WAL 模式下建议在拷贝前先停一下进程，或者用 `sqlite3 data/guestbook.db ".backup out.db"`。
+每次备份会在 `backups/<时间戳>/` 下生成 `guestbook.db`、`uploads/` 和 `manifest.json`
+（清单里记着条目数、图片数、完整性检查结果，恢复时用来判断这份备份完不完整）。
+默认保留最近 14 份，用 `KEEP` 改。
+
+**恢复演练**——「备份成功」和「备份能恢复」是两件事：
+
+```bash
+docker compose exec -T app node scripts/restore-drill.mjs
+# 或 npm run restore:drill
+```
+
+它把最新一份备份恢复到临时目录，逐项校验：`integrity_check`、各表行数与清单是否一致、
+能不能真的查出公开留言、附件指向的图片文件在不在。**不碰正在用的 `data/`**，随时可跑。
+
+真正的恢复操作就三步：停应用 → 用备份覆盖 `data/guestbook.db` 和 `data/uploads/` → 启动。
+
+定时任务（宿主机 crontab）：
+
+```cron
+# 每天凌晨 4 点备份
+0 4 * * * cd /opt/myblog && docker compose exec -T app node scripts/backup.mjs >> backups/cron.log 2>&1
+# 每周日凌晨 5 点做一次恢复演练
+0 5 * * 0 cd /opt/myblog && docker compose exec -T app node scripts/restore-drill.mjs >> backups/cron.log 2>&1
+```
+
+> 备份放在同一块盘上只能防误删，**防不了磁盘挂掉**。
+> 记得把 `backups/` 同步到站外（另一块盘、对象存储、或者 `rclone` 到网盘）。
+
+### 健康检查
+
+`/healthz` 会真的去读一次数据库再回 JSON（`{"ok":true,"entries":N,...}`），
+数据库打不开时返回 503。好处是「进程活着但数据库坏了」也能被发现——
+只回 200 的探活等于没探。容器 healthcheck 和外部可用性监控都用它。
 
 ### 上线前检查清单
 
-- [ ] 改掉 `ADMIN_PASSWORD`
-- [ ] 设好 `SITE_URL` 并**重新构建**
-- [ ] 挂上持久化卷（或确认 `data/` 在会被备份的路径下）
-- [ ] 配好 HTTPS 反代
+- [ ] `.env` 里改掉 `ADMIN_PASSWORD`（12 位以上）和 `GUESTBOOK_SALT`
+- [ ] `SITE_URL` 设成真实地址——**它是构建期变量，改完必须重新 build**
+- [ ] 挂上持久化卷（`./data`），或确认它在会被备份的路径下
+- [ ] 配好 HTTPS 反代；**反代后面确认 `TRUST_PROXY=1` 且代理覆盖了 `X-Forwarded-For`**
+- [ ] `./deploy.sh` 跑完自检全绿（含 `/healthz`、生产冒烟、备份与恢复演练）
 - [ ] 打开 `/robots.txt` 和 `/sitemap-index.xml` 确认域名是你要的
 - [ ] 随便发一条留言，确认能在 `/admin` 看到并通过审核
+- [ ] 配好 `backups/` 的定时任务，并**把备份同步到站外**
+- [ ] 想清楚定位：**仓库历史里仍有未打码的原图**。若仓库是公开的，
+      任何人 clone 后翻历史都能拿到——要么转私有，要么重写历史
 
 ## 目录结构
 

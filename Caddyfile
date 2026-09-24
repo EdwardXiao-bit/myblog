@@ -1,0 +1,43 @@
+# Caddy 反向代理配置
+#
+# 两种用法，由 docker-compose.yml 里的 SITE_DOMAIN 决定：
+#
+#   1) 有域名：在 .env 里写 SITE_DOMAIN=example.com
+#      -> Caddy 自动向 Let's Encrypt 申请证书并自动续期，80 端口自动跳 443。
+#         前提：域名已解析到这台机器，且 80/443 对公网开放。
+#
+#   2) 只有 IP：SITE_DOMAIN 留空
+#      -> 退化成 :80 上的明文 HTTP，先用 http://IP 访问，不留任何证书垃圾。
+#         以后买了域名，改一行 .env 再 docker compose up -d 即可切到 HTTPS。
+
+{
+	# 关掉管理 API 的远程访问面
+	admin off
+	# 申请证书用的联系邮箱（可选，留空也能签）
+	email {$ACME_EMAIL:}
+}
+
+{$SITE_DOMAIN::80} {
+	encode zstd gzip
+
+	reverse_proxy app:4321 {
+		# 关键：**覆盖**而不是追加 X-Forwarded-For。
+		# 默认行为会把客户端自带的值保留下来，那样访客就能伪造 IP 绕过留言板限流。
+		# 应用侧 TRUST_PROXY=1 时取这一段的最后一项（见 src/lib/client-ip.ts）。
+		header_up X-Forwarded-For {http.request.remote.host}
+		header_up X-Real-IP {http.request.remote.host}
+	}
+
+	# Astro 构建出的静态资源文件名带内容哈希，可以放心长期缓存
+	@assets path /_astro/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# 留言板是动态的，不要被中间层缓存
+	@dynamic path /guestbook /admin /api/* /healthz
+	header @dynamic Cache-Control "no-store"
+
+	log {
+		output stdout
+		format console
+	}
+}

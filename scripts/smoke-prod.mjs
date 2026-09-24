@@ -18,6 +18,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 const BASE = (process.argv[2] || 'http://127.0.0.1:4321').replace(/\/$/, '');
 const WRITE = process.argv.includes('--write');
+const EXPECT_PROXY = process.argv.includes('--expect-proxy');
 const HOST = BASE.replace(/^https?:\/\//, '');
 const SAME = `${BASE.startsWith('https') ? 'https' : 'http'}://${HOST}`;
 
@@ -42,10 +43,11 @@ const dbCount = () => {
   return n;
 };
 
-async function postForm(fields, { origin = SAME } = {}) {
+async function postForm(fields, { origin = SAME, xff = null } = {}) {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   const headers = origin === null ? {} : { origin };
+  if (xff) headers['x-forwarded-for'] = xff;
   const r = await fetch(`${BASE}/api/guestbook`, {
     method: 'POST',
     headers,
@@ -54,6 +56,25 @@ async function postForm(fields, { origin = SAME } = {}) {
   });
   const loc = r.headers.get('location') || '';
   return { status: r.status, m: loc ? new URL(loc, BASE).searchParams.get('m') : null };
+}
+
+/** 提交一条并取回落库的 ip_hash，然后删掉——用来验证 IP 到底是怎么算的 */
+async function hashForXff(xff) {
+  const fd = new FormData();
+  fd.set('body', 'ip probe');
+  fd.set('nickname', 'probe');
+  fd.set('ts', String(Date.now() - 5000));
+  const headers = { origin: SAME };
+  if (xff) headers['x-forwarded-for'] = xff;
+  await fetch(`${BASE}/api/guestbook`, { method: 'POST', headers, body: fd, redirect: 'manual' });
+  const db = new DatabaseSync('data/guestbook.db');
+  const row = db.prepare('select id, ip_hash from entries order by id desc limit 1').get();
+  if (row) {
+    db.exec(`delete from entries where id = ${row.id}`);
+    db.exec("delete from sqlite_sequence where name='entries'");
+  }
+  db.close();
+  return row?.ip_hash ?? null;
 }
 
 console.log(`\n生产冒烟：${BASE}${WRITE ? '（含写链路）' : '（只读）'}`);
@@ -159,8 +180,25 @@ if (WRITE) {
   db.exec("delete from sqlite_sequence where name='entries'");
   db.close();
   ok(dbCount() === before, `测试数据已清理（回到 ${before} 条）`);
+
+  // 反向代理后面最容易悄悄踩的坑：所有访客被算成同一个人。
+  // 两个不同的 X-Forwarded-For 必须得到不同的 ip_hash，否则限流会退化成全站共享。
+  if (EXPECT_PROXY) {
+    console.log('\n[8] 反代下的真实访客 IP（--expect-proxy）');
+    const h1 = await hashForXff('203.0.113.11');
+    const h2 = await hashForXff('203.0.113.22');
+    ok(!!h1 && !!h2, '能从落库数据里读到 ip_hash');
+    ok(h1 !== h2, '两个不同访客得到不同的 ip_hash（限流按人算而不是全站）',
+       '相同 —— 说明 TRUST_PROXY 没生效或代理没覆盖 X-Forwarded-For，见 src/lib/client-ip.ts');
+    ok(dbCount() === before, `IP 探测数据已清理（回到 ${before} 条）`);
+  } else {
+    console.log('\n[8] 反代下的真实访客 IP：已跳过（加 --expect-proxy 开启）');
+  }
 } else {
   console.log('\n[7] 写链路：已跳过（加 --write 并在服务器本机运行）');
+  if (EXPECT_PROXY) {
+    console.log('     注意：--expect-proxy 需要同时加 --write 才能验证（要读数据库里的 ip_hash）');
+  }
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

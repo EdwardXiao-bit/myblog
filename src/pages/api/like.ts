@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getEntry, hashIp, toggleLike } from '../../lib/guestbook';
+import { clientIp } from '../../lib/client-ip';
 
 /**
  * 点赞。
@@ -48,7 +49,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
   let ip = 'unknown';
   try {
-    ip = clientAddress ?? 'unknown';
+    ip = clientIp(request, clientAddress);
   } catch {
     // 拿不到地址就退化成全局去重，宁可少算也不要多算
   }

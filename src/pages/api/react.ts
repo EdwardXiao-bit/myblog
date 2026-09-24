@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getEntry, hashIp, toggleReaction } from '../../lib/guestbook';
 import { isAllowedReaction } from '../../lib/reactions';
+import { clientIp } from '../../lib/client-ip';
 
 /**
  * 贴 / 取消贴一个表情反应。
@@ -49,7 +50,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
   let ip = 'unknown';
   try {
-    ip = clientAddress ?? 'unknown';
+    ip = clientIp(request, clientAddress);
   } catch {
     // 拿不到地址就退化成全局去重，宁可少算也不要多算
   }
