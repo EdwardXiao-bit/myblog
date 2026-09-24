@@ -9,6 +9,7 @@ import { adminConfigured, adminCookie, verifyToken } from '../lib/auth';
 import { LIMITS, listPending, listRecent, stats } from '../lib/guestbook';
 import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 import { formatDateTime } from '../utils/format';
+import { isImpostor } from '../utils/nickname';
 
 const configured = adminConfigured();
 const authed = configured && verifyToken(Astro.cookies.get(adminCookie.name)?.value);
@@ -197,6 +198,9 @@ const statusLabel: Record<string, string> = {
                       <span class="who">
                         {entry.kind === 'diary' ? `${site.name}（日记）` : (entry.nickname ?? '匿名')}
                       </span>
+                      {entry.kind !== 'diary' && isImpostor(entry.nickname) && (
+                        <span class="fake">冒牌🤡</span>
+                      )}
                       <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
                     </div>
                     {entry.body && <p class="text">{entry.body}</p>}
@@ -478,6 +482,22 @@ const statusLabel: Record<string, string> = {
   .who {
     color: var(--text);
     font-weight: 550;
+  }
+
+  /* 用了站主昵称的留言（彩蛋） */
+  .fake {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: #a35a1f;
+    border: 1px solid #d9a066;
+    background: rgba(217, 160, 102, 0.16);
+  }
+
+  :global(:root[data-theme='dark']) .fake {
+    color: #e0b083;
+    border-color: #7a5630;
+    background: rgba(217, 160, 102, 0.12);
   }
 
   .status {

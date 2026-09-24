@@ -9,6 +9,7 @@ import { site } from '../data/site';
 import { LIMITS, hashIp, listFeed, moderationOn } from '../lib/guestbook';
 import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 import { formatDateTime } from '../utils/format';
+import { isImpostor } from '../utils/nickname';
 
 // 拿到访问者的 IP 哈希，用来判断「我点过赞没有」。拿不到就退化得不显示已赞状态。
 let ipHash: string | null = null;
@@ -69,7 +70,10 @@ const notice = notices[code];
           maxlength={LIMITS.nickname}
           placeholder="留空即匿名"
           autocomplete="nickname"
+          data-owner={site.name}
         />
+        {/* 彩蛋：输入站主昵称时冒出来 */}
+        <p class="egg" id="nickname-egg" hidden>竟然和我一个昵称！🤡 那你是冒牌的</p>
       </div>
 
       <div class="field">
@@ -123,7 +127,10 @@ const notice = notices[code];
                     <span class="badge">站主日记</span>
                   </>
                 ) : (
-                  <span class="who">{entry.nickname ?? '匿名'}</span>
+                  <>
+                    <span class="who">{entry.nickname ?? '匿名'}</span>
+                    {isImpostor(entry.nickname) && <span class="badge badge-fake">冒牌🤡</span>}
+                  </>
                 )}
                 <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
               </div>
@@ -354,6 +361,41 @@ const notice = notices[code];
     border: 1px solid var(--accent);
   }
 
+  /* 用了站主昵称的留言 */
+  .badge-fake {
+    color: #a35a1f;
+    border-color: #d9a066;
+    background: rgba(217, 160, 102, 0.16);
+  }
+
+  :global(:root[data-theme='dark']) .badge-fake {
+    color: #e0b083;
+    border-color: #7a5630;
+    background: rgba(217, 160, 102, 0.12);
+  }
+
+  /* 输入昵称时冒出来的彩蛋 */
+  .egg {
+    margin-top: 6px;
+    font-size: 0.875rem;
+    color: var(--accent);
+  }
+
+  .egg.pop {
+    animation: egg-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes egg-pop {
+    0% {
+      transform: scale(0.88) translateY(-2px);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+  }
+
   .entry-head time {
     margin-left: auto;
   }
@@ -407,6 +449,28 @@ const notice = notices[code];
 
   textarea?.addEventListener('input', updateCount);
   updateCount();
+
+  // 彩蛋：昵称填成站主自己的，冒一句出来
+  const nickname = document.getElementById('nickname') as HTMLInputElement | null;
+  const egg = document.getElementById('nickname-egg');
+  const owner = (nickname?.dataset.owner ?? '').trim().toLowerCase();
+
+  const checkImpostor = () => {
+    if (!nickname || !egg || owner.length === 0) return;
+
+    const isFake = nickname.value.trim().toLowerCase() === owner;
+    egg.hidden = !isFake;
+
+    if (isFake) {
+      // 去掉再加回来，让动画能重复触发（每次重新输入都会再弹一下）
+      egg.classList.remove('pop');
+      void egg.offsetWidth;
+      egg.classList.add('pop');
+    }
+  };
+
+  nickname?.addEventListener('input', checkImpostor);
+  checkImpostor();
 
   // 选了哪些图，给个反馈
   const fileInput = document.getElementById('images') as HTMLInputElement | null;

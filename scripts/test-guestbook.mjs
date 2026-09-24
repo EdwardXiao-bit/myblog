@@ -675,6 +675,72 @@ section('19. 表情反应');
   check('删除前确实有反应', beforeDelete > 0);
 }
 
+section('20. 彩蛋：用了站主昵称的留言');
+{
+  ageOut(); // 释放限流配额
+
+  const owner = readFileSync('src/data/site.ts', 'utf8').match(/name:\s*'([^']+)'/)?.[1] ?? '';
+  check('能读到站主昵称', owner.length > 0, owner);
+
+  // 前端彩蛋靠输入框上的 data-owner 比对
+  const gb = await bodyOf(await get(BASE, '/guestbook'));
+  check('输入框带上了站主昵称', gb.includes(`data-owner="${owner}"`));
+  check('彩蛋文案已就位', gb.includes('竟然和我一个昵称'));
+
+  // 取某条留言所在卡片的 HTML，用来判断标签是不是贴对了地方
+  const cardOf = (page, id) => {
+    const start = page.indexOf(`id="entry-${id}"`);
+    if (start < 0) return '';
+    const next = page.indexOf('id="entry-', start + 10);
+    return page.slice(start, next < 0 ? undefined : next);
+  };
+
+  const approve = (id) =>
+    fetch(BASE + '/api/admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
+      body: new URLSearchParams({ action: 'moderate', id: String(id), op: 'approve' }),
+      redirect: 'manual',
+    });
+
+  // ① 完全同名
+  await post(BASE, '/api/guestbook', { nickname: owner, body: '我是冒牌的' });
+  const fake = findEntry('我是冒牌的');
+  check('冒牌留言已入库', Boolean(fake));
+  await approve(fake.id);
+
+  let page = await bodyOf(await get(BASE, '/guestbook'));
+  check('审核后卡片里出现「冒牌」标签', cardOf(page, fake.id).includes('冒牌'));
+
+  // ② 大小写不同也该认出来
+  const upper = owner.toUpperCase();
+  if (upper !== owner) {
+    await post(BASE, '/api/guestbook', { nickname: upper, body: '大小写不同也该认出来' });
+    const row = findEntry('大小写不同也该认出来');
+    await approve(row.id);
+    page = await bodyOf(await get(BASE, '/guestbook'));
+    check('大小写不同也认得出', cardOf(page, row.id).includes('冒牌'));
+  } else {
+    check('大小写不同也认得出', true, '站主昵称本身就是全大写，跳过');
+  }
+
+  // ③ 普通昵称不能被误标
+  await post(BASE, '/api/guestbook', { nickname: '路人甲', body: '普通昵称不该被标' });
+  const normal = findEntry('普通昵称不该被标');
+  await approve(normal.id);
+  page = await bodyOf(await get(BASE, '/guestbook'));
+  const normalCard = cardOf(page, normal.id);
+  check('普通昵称没有被误标', normalCard.length > 0 && !normalCard.includes('冒牌'));
+
+  // ④ 站主自己的日记不该被标冒牌
+  const diary = db()
+    .prepare("select id from entries where kind = 'diary' and status = 'published' limit 1")
+    .get();
+  if (diary) {
+    check('站主日记没被误标', !cardOf(page, Number(diary.id)).includes('冒牌'));
+  }
+}
+
 // ---------- 汇总 ----------
 console.log(`\n${'='.repeat(46)}`);
 console.log(`通过 ${passed} 项，失败 ${failed} 项`);
