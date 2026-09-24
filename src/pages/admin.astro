@@ -538,6 +538,8 @@ const statusLabel: Record<string, string> = {
 
   .actions {
     display: flex;
+    /* 通过 / 拒绝 / 删除 也靠右，和下面回复框的提交按钮排成一列 */
+    justify-content: flex-end;
     gap: 8px;
     margin-top: 12px;
   }

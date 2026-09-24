@@ -137,6 +137,8 @@ const { replies, canManage = false, back } = Astro.props;
   .reply-foot {
     display: flex;
     align-items: center;
+    /* 点赞和「删除回复」一起靠右 */
+    justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
   }

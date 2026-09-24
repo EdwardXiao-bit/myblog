@@ -27,8 +27,10 @@ const { entry, back } = Astro.props;
 </form>
 
 <style>
+  /* 靠右：留言/回复的正文在左，操作放右侧，视觉上不挤在一堆 */
   .like {
-    display: inline-block;
+    display: flex;
+    justify-content: flex-end;
     margin-top: 10px;
   }
 
