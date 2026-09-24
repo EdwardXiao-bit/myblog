@@ -487,41 +487,93 @@ section('17. 点赞');
   check('页面上有点赞按钮和计数', html.includes('like-count') && html.includes(`value="${id}"`));
 }
 
-section('18. 站主回复');
+section('18. 站主回复（回复本身就是一条记录）');
 {
-  const target = db().prepare("select id from entries where status='published' order by id limit 1").get();
+  const target = db()
+    .prepare("select id from entries where status='published' and parent_id is null order by id limit 1")
+    .get();
   const id = Number(target.id);
   const REPLY = '谢谢，常来玩！';
 
+  const replyOf = (parentId) =>
+    db().prepare("select * from entries where parent_id = ? and kind = 'reply' order by id limit 1").get(parentId);
+
   // 未登录不能回复
   await post(BASE, '/api/admin', { action: 'reply', id: String(id), body: '偷偷回复' });
-  check('未登录回复被拒', !db().prepare('select reply from entries where id = ?').get(id)?.reply);
+  check('未登录回复被拒', !replyOf(id));
 
-  const form = new URLSearchParams({ action: 'reply', id: String(id), body: REPLY });
   const res = await fetch(BASE + '/api/admin', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
-    body: form,
+    body: new URLSearchParams({ action: 'reply', id: String(id), body: REPLY }),
     redirect: 'manual',
   });
   check('登录后可以回复', codeOf(res) === 'replied', `m=${codeOf(res)}`);
 
-  const row = db().prepare('select reply, replied_at from entries where id = ?').get(id);
-  check('回复已入库', row?.reply === REPLY);
-  check('记录了回复时间', Boolean(row?.replied_at));
+  const row = replyOf(id);
+  check('回复是独立的一条记录', row?.kind === 'reply' && row?.body === REPLY, `kind=${row?.kind}`);
+  check('回复状态为 published', row?.status === 'published');
+  check('回复有自己的时间', Boolean(row?.created_at));
 
-  const html = await bodyOf(await get(BASE, '/guestbook'));
+  let html = await bodyOf(await get(BASE, '/guestbook'));
   check('留言板上能看到回复', html.includes(REPLY));
-  check('回复带站主标记', html.includes('回复'));
 
-  // 删除回复
-  await fetch(BASE + '/api/admin', {
+  // 回复配图：和留言走同一套上传
+  const sharp = createRequire(import.meta.url)('sharp');
+  const png = await sharp({
+    create: { width: 100, height: 100, channels: 3, background: '#c0392b' },
+  })
+    .png()
+    .toBuffer();
+
+  const beforeAtt = count('select count(*) as n from attachments');
+  const upload = new FormData();
+  upload.append('action', 'reply');
+  upload.append('id', String(id));
+  upload.append('body', REPLY + '（补一张图）');
+  upload.append('images', new Blob([png], { type: 'image/png' }), 'reply.png');
+
+  const up = await fetch(BASE + '/api/admin', {
+    method: 'POST',
+    body: upload,
+    headers: { origin: BASE, cookie: COOKIE },
+    redirect: 'manual',
+  });
+  check('回复可以带图', codeOf(up) === 'replied', `m=${codeOf(up)}`);
+  check('回复的图片已入库', count('select count(*) as n from attachments') === beforeAtt + 1);
+
+  // 回复只有一条（再次提交是更新，不是新增）
+  check('同一内容只有一条回复', count('select count(*) as n from entries where parent_id = ?', id) === 1);
+
+  html = await bodyOf(await get(BASE, '/guestbook'));
+  check('回复的图片出现在公开页', html.includes('/uploads/'));
+
+  // 回复也能被点赞
+  const replyRow = replyOf(id);
+  const like = await fetch(BASE + '/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+    body: new URLSearchParams({ id: String(replyRow.id) }),
+  });
+  const likeData = await like.json();
+  check('回复可以被点赞', likeData.count === 1, JSON.stringify(likeData));
+
+  // 删除回复：记录和图片文件都要清掉
+  const attPath = db().prepare('select path from attachments where entry_id = ?').get(replyRow.id);
+  const del = await fetch(BASE + '/api/admin', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
     body: new URLSearchParams({ action: 'unreply', id: String(id) }),
     redirect: 'manual',
   });
-  check('可以删除回复', !db().prepare('select reply from entries where id = ?').get(id)?.reply);
+  check('可以删除回复', codeOf(del) === 'replied' && !replyOf(id));
+  check(
+    '回复的图片记录一并删除',
+    count('select count(*) as n from attachments where entry_id = ?', replyRow.id) === 0
+  );
+
+  const gone = await fetch(`${BASE}/uploads/${attPath?.path}`);
+  check('回复的图片文件也被删掉', gone.status === 404, `status=${gone.status}`);
 }
 
 // ---------- 汇总 ----------

@@ -12,7 +12,8 @@
     "check:build": "node scripts/check-build.mjs",
     "smoke": "node scripts/smoke.mjs",
     "check:links": "node scripts/check-links.mjs",
-    "test:guestbook": "node scripts/test-guestbook.mjs"
+    "test:guestbook": "node scripts/test-guestbook.mjs",
+    "test:migration": "node scripts/test-migration.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",

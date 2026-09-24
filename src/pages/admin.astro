@@ -3,9 +3,11 @@ export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ReplyBox from '../components/ReplyBox.astro';
+import ReplyList from '../components/ReplyList.astro';
 import { site } from '../data/site';
 import { adminConfigured, adminCookie, verifyToken } from '../lib/auth';
 import { LIMITS, listPending, listRecent, stats } from '../lib/guestbook';
+import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 import { formatDateTime } from '../utils/format';
 
 const configured = adminConfigured();
@@ -24,6 +26,15 @@ const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   'diary-public': { tone: 'ok', text: '日记已发布，留言板上能看到。' },
   'diary-private': { tone: 'ok', text: '日记已保存为「仅自己可见」。' },
   replied: { tone: 'ok', text: '回复已保存。' },
+  'too-many-images': {
+    tone: 'warn',
+    text: `最多带 ${MAX_IMAGES_PER_ENTRY} 张图片（留言 3 张 / 回复与已有图片合计 3 张）。`,
+  },
+  'image-too-large': {
+    tone: 'warn',
+    text: `单张图片不能超过 ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB。`,
+  },
+  'bad-image': { tone: 'warn', text: '图片格式不支持，请用 jpg / png / webp / gif。' },
   done: { tone: 'ok', text: '操作完成。' },
   'bad-request': { tone: 'warn', text: '请求不合法，已忽略。' },
 };
@@ -165,6 +176,7 @@ const statusLabel: Record<string, string> = {
                       <button name="op" value="reject">拒绝</button>
                       <button name="op" value="delete" class="danger">删除</button>
                     </form>
+                    <ReplyList replies={entry.replies} canManage back="/admin" />
                     <ReplyBox entry={entry} />
                   </li>
                 ))}
@@ -211,6 +223,7 @@ const statusLabel: Record<string, string> = {
                         删除
                       </button>
                     </form>
+                    <ReplyList replies={entry.replies} canManage back="/admin" />
                     <ReplyBox entry={entry} />
                   </li>
                 ))}

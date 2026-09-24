@@ -2,13 +2,16 @@
 export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
+import EmojiPicker from '../components/EmojiPicker.astro';
+import LikeButton from '../components/LikeButton.astro';
+import ReplyList from '../components/ReplyList.astro';
 import { site } from '../data/site';
 import { LIMITS, hashIp, listFeed, listPending, moderationOn } from '../lib/guestbook';
 import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 import { adminCookie, verifyToken } from '../lib/auth';
 import { formatDateTime } from '../utils/format';
 
-// 拿到访问者的 IP 哈希，用来判断「我点过赞没有」。拿不到就退化成不显示已赞状态。
+// 拿到访问者的 IP 哈希，用来判断「我点过赞没有」。拿不到就退化得不显示已赞状态。
 let ipHash: string | null = null;
 try {
   ipHash = hashIp(Astro.clientAddress ?? 'unknown');
@@ -38,14 +41,6 @@ const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
 
 const code = Astro.url.searchParams.get('m') ?? '';
 const notice = notices[code];
-
-// 表情面板：够用就好，不引第三方库
-const emojis = [
-  '😀', '😄', '😁', '😂', '🤣', '😊', '😍', '🤔',
-  '😅', '😭', '😴', '🤯', '😎', '🥹', '🙃', '👍',
-  '👏', '🙏', '💪', '🎉', '🔥', '✨', '❤️', '💚',
-  '🌸', '🌙', '☕', '🍜', '🚲', '🎮', '🎹', '🏊',
-];
 ---
 
 <BaseLayout title={`留言板 · ${site.name}`} description={`给 ${site.name} 留言，可以匿名`}>
@@ -97,14 +92,8 @@ const emojis = [
           placeholder="说点什么吧……"></textarea>
 
         <div class="editor-bar">
-          <button type="button" id="emoji-toggle" class="tool" aria-expanded="false" aria-controls="emoji-picker">
-            😊 表情
-          </button>
+          <EmojiPicker target="body" />
           <span class="counter"><span id="char-count">0</span> / {LIMITS.body}</span>
-        </div>
-
-        <div id="emoji-picker" class="emoji-picker" hidden>
-          {emojis.map((emoji) => <button type="button" data-emoji={emoji} aria-label={emoji}>{emoji}</button>)}
         </div>
       </div>
 
@@ -170,31 +159,9 @@ const emojis = [
                 </ul>
               )}
 
-              {entry.reply && (
-                <div class="reply">
-                  <p class="reply-head">{site.name} 回复</p>
-                  <p class="reply-body">{entry.reply}</p>
-                  {entry.repliedAt && (
-                    <time class="reply-time" datetime={entry.repliedAt}>
-                      {formatDateTime(new Date(entry.repliedAt))}
-                    </time>
-                  )}
-                </div>
-              )}
+              <LikeButton entry={entry} back="/guestbook" />
 
-              <form class="like" method="post" action="/api/like" data-like>
-                <input type="hidden" name="id" value={entry.id} />
-                <input type="hidden" name="back" value="/guestbook" />
-                <button
-                  type="submit"
-                  class={entry.likedByMe ? 'liked' : ''}
-                  aria-pressed={entry.likedByMe ? 'true' : 'false'}
-                  title={entry.likedByMe ? '你点过赞了' : '点个赞'}
-                >
-                  <span class="heart" aria-hidden="true">♥</span>
-                  <span class="like-count">{entry.likeCount}</span>
-                </button>
-              </form>
+              <ReplyList replies={entry.replies} back="/guestbook" />
             </li>
           ))}
         </ol>
@@ -302,7 +269,6 @@ const emojis = [
     color: var(--accent);
   }
 
-  /* 表情 */
   .editor-bar {
     display: flex;
     align-items: center;
@@ -310,56 +276,10 @@ const emojis = [
     gap: 12px;
   }
 
-  .tool {
-    font: inherit;
-    font-size: 0.8125rem;
-    padding: 4px 12px;
-    color: var(--text-soft);
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-
-  .tool:hover {
-    border-color: var(--border-strong);
-    color: var(--text);
-  }
-
   .counter {
     font-size: 0.75rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
-  }
-
-  .emoji-picker {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
-    gap: 4px;
-    margin-top: 8px;
-    padding: 10px;
-    background: var(--bg-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-
-  .emoji-picker[hidden] {
-    display: none;
-  }
-
-  .emoji-picker button {
-    font-size: 1.125rem;
-    line-height: 1;
-    padding: 6px 0;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-
-  .emoji-picker button:hover {
-    background: var(--bg-elev);
-    border-color: var(--border);
   }
 
   /* 蜜罐字段：用定位移出视口，而不是 display:none —— 有些爬虫会跳过 display:none 的字段 */
@@ -488,83 +408,10 @@ const emojis = [
     max-height: 320px;
     object-fit: cover;
   }
-
-  /* 站主回复 */
-  .reply {
-    margin-top: 12px;
-    padding: 12px 14px;
-    border-left: 3px solid var(--accent);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--accent-soft);
-  }
-
-  .reply-head {
-    font-size: 0.8125rem;
-    font-weight: 550;
-    color: var(--accent);
-    margin-bottom: 4px;
-  }
-
-  .reply-body {
-    font-size: 0.9375rem;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .reply-time {
-    display: block;
-    margin-top: 6px;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  /* 点赞 */
-  .like {
-    margin-top: 12px;
-  }
-
-  .like button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font: inherit;
-    font-size: 0.8125rem;
-    padding: 4px 12px;
-    color: var(--text-muted);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-
-  .like button:hover {
-    color: #c0392b;
-    border-color: #c0392b;
-  }
-
-  .like button.liked {
-    color: #c0392b;
-    border-color: #c0392b;
-    background: rgba(192, 57, 43, 0.08);
-  }
-
-  .like button:disabled {
-    cursor: default;
-    opacity: 0.75;
-  }
-
-  .like-count {
-    font-variant-numeric: tabular-nums;
-  }
 </style>
 
 <script>
-  // 表情选择：插到光标处
   const textarea = document.getElementById('body') as HTMLTextAreaElement | null;
-  const picker = document.getElementById('emoji-picker');
-  const toggle = document.getElementById('emoji-toggle');
   const counter = document.getElementById('char-count');
 
   const updateCount = () => {
@@ -573,26 +420,6 @@ const emojis = [
 
   textarea?.addEventListener('input', updateCount);
   updateCount();
-
-  toggle?.addEventListener('click', () => {
-    if (!picker) return;
-    picker.hidden = !picker.hidden;
-    toggle.setAttribute('aria-expanded', picker.hidden ? 'false' : 'true');
-  });
-
-  for (const button of picker?.querySelectorAll('button[data-emoji]') ?? []) {
-    button.addEventListener('click', () => {
-      if (!textarea) return;
-      const emoji = (button as HTMLElement).dataset.emoji ?? '';
-      const start = textarea.selectionStart ?? textarea.value.length;
-      const end = textarea.selectionEnd ?? start;
-
-      textarea.value = textarea.value.slice(0, start) + emoji + textarea.value.slice(end);
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
-      updateCount();
-    });
-  }
 
   // 选了哪些图，给个反馈
   const fileInput = document.getElementById('images') as HTMLInputElement | null;
@@ -603,32 +430,4 @@ const emojis = [
     const count = fileInput.files?.length ?? 0;
     fileNote.textContent = count > 0 ? `已选 ${count} 张图片` : '';
   });
-
-  // 点赞：有脚本就不刷新页面，没脚本表单照常提交
-  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-like]')) {
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const button = form.querySelector('button');
-      if (!button || button.disabled) return;
-
-      try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          headers: { accept: 'application/json' },
-          body: new FormData(form),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-
-        const data = (await res.json()) as { count: number; liked: boolean };
-        const count = button.querySelector('.like-count');
-        if (count) count.textContent = String(data.count);
-        button.classList.toggle('liked', data.liked);
-        button.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
-        button.disabled = true;
-      } catch {
-        // 出问题就退回普通表单提交，至少让用户能点上
-        form.submit();
-      }
-    });
-  }
 </script>

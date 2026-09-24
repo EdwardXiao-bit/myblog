@@ -3,15 +3,17 @@ import { getDb } from './db';
 import { loadEnvOnce } from './env';
 
 /**
- * 留言板 / 日记的全部业务逻辑。
+ * 留言板 / 日记 / 回复的全部业务逻辑。
+ *
  * 设计取舍：
  *  - 谁都能留言，昵称留空就是匿名（不要求登录，也不收集邮箱）
  *  - IP 只存哈希，用来限流与点赞去重，不存明文
- *  - 审核开关默认开：留言先进待审核队列，避免匿名留言被垃圾灌满
+ *  - 审核开关默认开：留言先进待审核队列
  *  - 点赞不需要登录，同一来源对同一条只能点一次
+ *  - **回复也是一条 entry**（kind='reply' + parent_id），所以配图、点赞、时间全都复用
  */
 
-export type EntryKind = 'message' | 'diary';
+export type EntryKind = 'message' | 'diary' | 'reply';
 export type EntryStatus = 'pending' | 'published' | 'private' | 'rejected';
 
 export interface Attachment {
@@ -24,22 +26,25 @@ export interface Attachment {
 export interface Entry {
   id: number;
   kind: EntryKind;
+  /** 回复才有：指向被回复的那条内容 */
+  parentId: number | null;
   nickname: string | null;
   body: string;
   createdAt: string;
   status: EntryStatus;
-  /** 站主回复 */
-  reply: string | null;
-  repliedAt: string | null;
   attachments: Attachment[];
   likeCount: number;
   /** 只有在查询时传了 ipHash 才有意义 */
   likedByMe: boolean;
+  /** 挂在它下面的回复（回复自身不再嵌套） */
+  replies: Entry[];
 }
 
 export const LIMITS = {
   nickname: 24,
   body: 1000,
+  /** 站主回复的长度上限 */
+  reply: 1000,
   /** 同一 IP 每小时最多留言条数 */
   perHour: 5,
   /** 留言墙一次显示多少条 */
@@ -94,12 +99,16 @@ export function validateMessage(nicknameRaw: unknown, bodyRaw: unknown): Validat
   const nickname = cleanText(nicknameRaw, LIMITS.nickname);
   const body = cleanText(bodyRaw, LIMITS.body + 1);
 
-  // 只有图片没有文字的留言也允许，所以「空」的判断交给调用方结合附件一起看
   if (Array.from(body).length > LIMITS.body) {
     return { ok: false, reason: 'too-long', nickname: null, body: '' };
   }
 
   return { ok: true, nickname: nickname.length > 0 ? nickname : null, body };
+}
+
+/** 站主回复的正文清洗（不需要昵称） */
+export function validateReply(raw: unknown): string {
+  return cleanText(raw, LIMITS.reply);
 }
 
 /** 正文和附件都为空才算无效 */
@@ -109,6 +118,7 @@ export function isEmptyMessage(body: string, attachmentCount: number): boolean {
 
 export interface CreateInput {
   kind: EntryKind;
+  parentId?: number | null;
   nickname: string | null;
   body: string;
   status: EntryStatus;
@@ -118,11 +128,12 @@ export interface CreateInput {
 export function createEntry(input: CreateInput): number {
   const info = getDb()
     .prepare(
-      `insert into entries (kind, nickname, body, created_at, status, ip_hash)
-       values (?, ?, ?, ?, ?, ?)`
+      `insert into entries (kind, parent_id, nickname, body, created_at, status, ip_hash)
+       values (?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       input.kind,
+      input.parentId ?? null,
       input.nickname,
       input.body,
       new Date().toISOString(),
@@ -136,15 +147,14 @@ export function createEntry(input: CreateInput): number {
 interface Row {
   id: number | bigint;
   kind: string;
+  parent_id: number | bigint | null;
   nickname: string | null;
   body: string;
   created_at: string;
   status: string;
-  reply: string | null;
-  replied_at: string | null;
 }
 
-const SELECT_COLUMNS = `id, kind, nickname, body, created_at, status, reply, replied_at`;
+const SELECT_COLUMNS = `id, kind, parent_id, nickname, body, created_at, status`;
 
 /** 把一组 id 交给 sql 的 in (...) 用 */
 function placeholders(count: number): string {
@@ -152,24 +162,24 @@ function placeholders(count: number): string {
 }
 
 /**
- * 批量补齐附件、点赞数、我点过没。
+ * 批量补齐附件、点赞数、我点过没，以及（顶层内容）挂在下面的回复。
  * 一次查完，避免每条留言各查一次库（N+1）。
  */
-function hydrate(rows: unknown[], ipHash?: string | null): Entry[] {
+function hydrate(rows: unknown[], ipHash?: string | null, withReplies = false): Entry[] {
   const entries: Entry[] = rows.map((raw) => {
     const r = raw as Row;
     return {
       id: Number(r.id),
       kind: r.kind as EntryKind,
+      parentId: r.parent_id === null ? null : Number(r.parent_id),
       nickname: r.nickname,
       body: r.body,
       createdAt: r.created_at,
       status: r.status as EntryStatus,
-      reply: r.reply,
-      repliedAt: r.replied_at,
       attachments: [],
       likeCount: 0,
       likedByMe: false,
+      replies: [],
     };
   });
 
@@ -221,6 +231,19 @@ function hydrate(rows: unknown[], ipHash?: string | null): Entry[] {
     }
   }
 
+  if (withReplies) {
+    const childRows = db
+      .prepare(
+        `select ${SELECT_COLUMNS} from entries where parent_id in (${marks}) order by created_at asc, id asc`
+      )
+      .all(...ids);
+
+    for (const child of hydrate(childRows, ipHash, false)) {
+      if (child.parentId === null) continue;
+      byId.get(child.parentId)?.replies.push(child);
+    }
+  }
+
   return entries;
 }
 
@@ -229,12 +252,12 @@ export function listFeed(limit: number = LIMITS.feed, ipHash?: string | null): E
   const rows = getDb()
     .prepare(
       `select ${SELECT_COLUMNS} from entries
-        where status = 'published'
+        where status = 'published' and parent_id is null
         order by created_at desc, id desc
         limit ?`
     )
     .all(limit);
-  return hydrate(rows, ipHash);
+  return hydrate(rows, ipHash, true);
 }
 
 /** 待审核队列：先来的先处理 */
@@ -242,37 +265,39 @@ export function listPending(ipHash?: string | null): Entry[] {
   const rows = getDb()
     .prepare(
       `select ${SELECT_COLUMNS} from entries
-        where status = 'pending'
+        where status = 'pending' and parent_id is null
         order by created_at asc, id asc`
     )
     .all();
-  return hydrate(rows, ipHash);
+  return hydrate(rows, ipHash, true);
 }
 
-/** 管理页用：最近的全部条目，含私密日记和已拒绝的 */
+/** 管理页用：最近的全部顶层内容（含私密日记和已拒绝的），回复挂在各自父级下面 */
 export function listRecent(limit = 30, ipHash?: string | null): Entry[] {
   const rows = getDb()
     .prepare(
       `select ${SELECT_COLUMNS} from entries
+        where parent_id is null
         order by created_at desc, id desc
         limit ?`
     )
     .all(limit);
-  return hydrate(rows, ipHash);
+  return hydrate(rows, ipHash, true);
 }
 
 export function getEntry(id: number, ipHash?: string | null): Entry | null {
-  const rows = getDb()
-    .prepare(`select ${SELECT_COLUMNS} from entries where id = ?`)
-    .all(id);
-  return hydrate(rows, ipHash)[0] ?? null;
+  const rows = getDb().prepare(`select ${SELECT_COLUMNS} from entries where id = ?`).all(id);
+  return hydrate(rows, ipHash, true)[0] ?? null;
 }
 
-/** 限流：同一 IP 哈希在最近一小时内是否已超限 */
+/** 限流：同一 IP 哈希在最近一小时内是否已超限（只算访客留言） */
 export function isRateLimited(ipHash: string): boolean {
   const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
   const row = getDb()
-    .prepare(`select count(*) as n from entries where ip_hash = ? and created_at > ?`)
+    .prepare(
+      `select count(*) as n from entries
+        where ip_hash = ? and created_at > ? and parent_id is null`
+    )
     .get(ipHash, since) as { n: number | bigint } | undefined;
 
   return Number(row?.n ?? 0) >= LIMITS.perHour;
@@ -282,18 +307,82 @@ export function setStatus(id: number, status: EntryStatus): void {
   getDb().prepare(`update entries set status = ? where id = ?`).run(status, id);
 }
 
-/** 删除条目，返回它名下附件的路径（调用方负责把磁盘文件也删掉） */
+/** 收集一条内容及其回复名下的附件路径 */
+function attachmentPathsOf(ids: number[]): string[] {
+  if (ids.length === 0) return [];
+  const db = getDb();
+  const marks = placeholders(ids.length);
+  return (
+    db.prepare(`select path from attachments where entry_id in (${marks})`).all(...ids) as Array<{
+      path: string;
+    }>
+  ).map((r) => r.path);
+}
+
+/**
+ * 删除内容，连同它的回复。
+ * 返回需要从磁盘删掉的附件路径（调用方负责删文件）。
+ */
 export function removeEntry(id: number): string[] {
   const db = getDb();
-  const paths = (
-    db.prepare(`select path from attachments where entry_id = ?`).all(id) as Array<{ path: string }>
-  ).map((r) => r.path);
 
-  db.prepare(`delete from attachments where entry_id = ?`).run(id);
-  db.prepare(`delete from likes where entry_id = ?`).run(id);
-  db.prepare(`delete from entries where id = ?`).run(id);
+  const childIds = (
+    db.prepare(`select id from entries where parent_id = ?`).all(id) as Array<{ id: number | bigint }>
+  ).map((r) => Number(r.id));
+
+  const allIds = [id, ...childIds];
+  const paths = attachmentPathsOf(allIds);
+  const marks = placeholders(allIds.length);
+
+  db.prepare(`delete from attachments where entry_id in (${marks})`).run(...allIds);
+  db.prepare(`delete from likes where entry_id in (${marks})`).run(...allIds);
+  db.prepare(`delete from entries where id = ?`).run(id); // 回复靠外键语义手删，见下
+
+  if (childIds.length > 0) {
+    db.prepare(`delete from entries where parent_id = ?`).run(id);
+  }
 
   return paths;
+}
+
+// ---------- 回复 ----------
+
+/** 一条内容已有的回复（目前最多一条） */
+export function findReplyOf(parentId: number): Entry | null {
+  const row = getDb()
+    .prepare(`select ${SELECT_COLUMNS} from entries where parent_id = ? order by id limit 1`)
+    .get(parentId);
+  return row ? (hydrate([row])[0] ?? null) : null;
+}
+
+/** 给某条内容写回复；已经回过就更新正文，返回回复的 id */
+export function saveReply(parentId: number, body: string): number {
+  const existing = findReplyOf(parentId);
+  const text = validateReply(body);
+
+  if (existing) {
+    getDb().prepare(`update entries set body = ?, created_at = ? where id = ?`).run(
+      text,
+      new Date().toISOString(),
+      existing.id
+    );
+    return existing.id;
+  }
+
+  return createEntry({
+    kind: 'reply',
+    parentId,
+    nickname: null,
+    body: text,
+    status: 'published',
+  });
+}
+
+/** 删除某条内容的回复，返回附件路径 */
+export function removeReplyOf(parentId: number): string[] {
+  const existing = findReplyOf(parentId);
+  if (!existing) return [];
+  return removeEntry(existing.id);
 }
 
 // ---------- 点赞 ----------
@@ -305,19 +394,6 @@ export function addLike(entryId: number, ipHash: string): boolean {
     .run(entryId, ipHash, new Date().toISOString());
 
   return Number(info.changes) > 0;
-}
-
-// ---------- 站主回复 ----------
-
-export function setReply(entryId: number, text: string): void {
-  const reply = clamp(text.replace(/\r\n?/g, '\n').trim(), 500);
-  getDb()
-    .prepare(`update entries set reply = ?, replied_at = ? where id = ?`)
-    .run(reply.length > 0 ? reply : null, reply.length > 0 ? new Date().toISOString() : null, entryId);
-}
-
-export function clearReply(entryId: number): void {
-  getDb().prepare(`update entries set reply = null, replied_at = null where id = ?`).run(entryId);
 }
 
 // ---------- 附件 ----------
@@ -334,6 +410,13 @@ export function addAttachment(
     .run(entryId, file.path, file.width, file.height, file.bytes, new Date().toISOString());
 }
 
+export function countAttachments(entryId: number): number {
+  const row = getDb()
+    .prepare(`select count(*) as n from attachments where entry_id = ?`)
+    .get(entryId) as { n: number | bigint } | undefined;
+  return Number(row?.n ?? 0);
+}
+
 export interface Stats {
   published: number;
   pending: number;
@@ -341,11 +424,11 @@ export interface Stats {
   total: number;
 }
 
+/** 统计只算留言与日记，回复不算一条「内容」 */
 export function stats(): Stats {
-  const rows = getDb().prepare(`select status, count(*) as n from entries group by status`).all() as Array<{
-    status: string;
-    n: number | bigint;
-  }>;
+  const rows = getDb()
+    .prepare(`select status, count(*) as n from entries where kind <> 'reply' group by status`)
+    .all() as Array<{ status: string; n: number | bigint }>;
 
   const out: Stats = { published: 0, pending: 0, private: 0, total: 0 };
   for (const row of rows) {

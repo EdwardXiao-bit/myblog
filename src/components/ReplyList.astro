@@ -1,0 +1,159 @@
+---
+import type { Entry } from '../lib/guestbook';
+import { site } from '../data/site';
+import { formatDateTime } from '../utils/format';
+import LikeButton from './LikeButton.astro';
+
+/**
+ * 回复列表。留言板和留言管理页共用。
+ * 回复本身就是一条 entry，所以配图、点赞、时间这些和留言走的是同一套。
+ */
+interface Props {
+  replies: Entry[];
+  /** 管理页里多显示一个删除按钮 */
+  canManage?: boolean;
+  /** 无脚本点赞时跳回哪里 */
+  back: string;
+}
+
+const { replies, canManage = false, back } = Astro.props;
+---
+
+{
+  replies.length > 0 && (
+    <ul class="replies">
+      {replies.map((reply) => (
+        <li class="reply">
+          <div class="reply-head">
+            <span class="who">{site.name}</span>
+            <time datetime={reply.createdAt}>{formatDateTime(new Date(reply.createdAt))}</time>
+          </div>
+
+          {reply.body && <p class="reply-body">{reply.body}</p>}
+
+          {reply.attachments.length > 0 && (
+            <ul class="shots">
+              {reply.attachments.map((image) => (
+                <li>
+                  <a href={`/uploads/${image.path}`} target="_blank" rel="noopener" title="查看原图">
+                    <img src={`/uploads/${image.path}`} alt="回复配图" loading="lazy" decoding="async" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div class="reply-foot">
+            <LikeButton entry={reply} back={back} />
+            {canManage && (
+              <form method="post" action="/api/admin">
+                <input type="hidden" name="action" value="unreply" />
+                <input type="hidden" name="id" value={reply.parentId} />
+                <button type="submit" class="danger" formnovalidate>
+                  删除回复
+                </button>
+              </form>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .replies {
+    display: grid;
+    gap: 10px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .reply {
+    padding: 12px 14px;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--accent-soft);
+  }
+
+  .reply-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 5px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .reply-head .who {
+    font-size: 0.8125rem;
+    font-weight: 550;
+    color: var(--accent);
+  }
+
+  .reply-head time {
+    margin-left: auto;
+  }
+
+  .reply-body {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 200px));
+    gap: 8px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .shots a {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .shots a:hover {
+    border-color: var(--accent);
+  }
+
+  .shots img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 260px;
+    object-fit: cover;
+  }
+
+  .reply-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .danger {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 12px;
+    color: #b04a3a;
+    background: transparent;
+    border: 1px solid rgba(176, 74, 58, 0.5);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .danger:hover {
+    color: #fff;
+    background: #b04a3a;
+    border-color: #b04a3a;
+  }
+</style>

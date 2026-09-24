@@ -1,44 +1,45 @@
 ---
-import type { Entry } from '../lib/guestbook';
+import EmojiPicker from './EmojiPicker.astro';
+import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 
 /**
- * 站主回复框。管理页的「待审核」和「最近条目」两处都用它。
- *
- * 两个按钮都带 name="action"，只提交被点的那个；
- * 如果额外放一个 hidden 的 action，表单会同时带上两个值，后端取到的是先出现的那个。
+ * 站主回复框。功能跟留言表单对齐：文字 + 表情 + 配图。
+ * 已经回复过时提交会更新原文（已有配图保留，新选的会追加）。
  */
 interface Props {
-  entry: Entry;
+  entry: { id: number };
 }
 
 const { entry } = Astro.props;
-const fieldId = `reply-${entry.id}`;
+const fieldId = `reply-body-${entry.id}`;
+const fileId = `reply-images-${entry.id}`;
+const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
 ---
 
-<form class="reply-form" method="post" action="/api/admin">
-  <label class="reply-label" for={fieldId}>
-    {entry.reply ? '修改回复' : '回复这条'}
-  </label>
+<form class="reply-form" method="post" action="/api/admin" enctype="multipart/form-data">
+  <input type="hidden" name="action" value="reply" />
+  <input type="hidden" name="id" value={entry.id} />
 
+  <label class="reply-label" for={fieldId}>回复这条</label>
   <textarea
     id={fieldId}
     name="body"
     rows="2"
-    maxlength="500"
-    placeholder="以站主身份回复……">{entry.reply ?? ''}</textarea>
+    maxlength="1000"
+    placeholder="以站主身份回复……"></textarea>
+
+  <div class="reply-tools">
+    <EmojiPicker target={fieldId} />
+    <span class="counter"><span data-count-for={fieldId}>0</span> / 1000</span>
+  </div>
+
+  <div class="reply-file">
+    <label class="reply-label" for={fileId}>配图（可选，最多 {MAX_IMAGES_PER_ENTRY} 张，单张不超过 {maxMb} MB）</label>
+    <input id={fileId} name="images" type="file" accept="image/*" multiple />
+  </div>
 
   <div class="reply-actions">
-    <input type="hidden" name="id" value={entry.id} />
-    <button type="submit" name="action" value="reply" class="ok">
-      {entry.reply ? '更新回复' : '发布回复'}
-    </button>
-    {
-      entry.reply && (
-        <button type="submit" name="action" value="unreply" class="danger" formnovalidate>
-          删除回复
-        </button>
-      )
-    }
+    <button type="submit" class="ok">发布回复</button>
   </div>
 </form>
 
@@ -75,10 +76,33 @@ const fieldId = `reply-${entry.id}`;
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
+  .reply-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .counter {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .reply-file {
+    margin-top: 10px;
+  }
+
+  .reply-file input {
+    font-size: 0.8125rem;
+    color: var(--text-soft);
+  }
+
   .reply-actions {
     display: flex;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 10px;
   }
 
   .reply-actions button {
@@ -100,15 +124,21 @@ const fieldId = `reply-${entry.id}`;
     color: #fff;
     background: var(--accent);
   }
-
-  .reply-actions .danger {
-    color: #b04a3a;
-    border-color: rgba(176, 74, 58, 0.5);
-  }
-
-  .reply-actions .danger:hover {
-    color: #fff;
-    background: #b04a3a;
-    border-color: #b04a3a;
-  }
 </style>
+
+<script>
+  // 字数统计。同样加 data-wired 防止重复绑定。
+  for (const counter of document.querySelectorAll<HTMLElement>('[data-count-for]')) {
+    if (counter.dataset.wired) continue;
+    counter.dataset.wired = '1';
+
+    const textarea = document.getElementById(counter.dataset.countFor ?? '') as HTMLTextAreaElement | null;
+    if (!textarea) continue;
+
+    const update = () => {
+      counter.textContent = String(Array.from(textarea.value).length);
+    };
+    textarea.addEventListener('input', update);
+    update();
+  }
+</script>

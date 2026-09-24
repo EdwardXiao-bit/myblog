@@ -1,12 +1,29 @@
 import type { APIRoute } from 'astro';
 import { adminCookie, checkPassword, issueToken, verifyToken } from '../../lib/auth';
-import { clearReply, createEntry, removeEntry, setReply, setStatus, validateMessage } from '../../lib/guestbook';
-import { removeImage } from '../../lib/storage';
+import {
+  addAttachment,
+  createEntry,
+  getEntry,
+  removeEntry,
+  removeReplyOf,
+  saveReply,
+  setStatus,
+  validateMessage,
+  validateReply,
+} from '../../lib/guestbook';
+import { ALLOWED_MIME, MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES, removeImage, saveImage } from '../../lib/storage';
 
 export const prerender = false;
 
 const back = (path: string, m?: string) =>
   new Response(null, { status: 303, headers: { Location: m ? `${path}?m=${m}` : path } });
+
+/** formData 里挑出真正有内容的文件 */
+function pickFiles(form: FormData): File[] {
+  return form
+    .getAll('images')
+    .filter((item): item is File => typeof item === 'object' && 'size' in item && item.size > 0);
+}
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   // 同源校验：管理动作都靠 cookie 认证，必须挡住跨站提交
@@ -62,12 +79,50 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return back('/admin', visibility === 'private' ? 'diary-private' : 'diary-public');
   }
 
-  if (action === 'reply' || action === 'unreply') {
+  // ---- 回复：和留言一样支持表情与配图 ----
+  if (action === 'reply') {
     const id = Number(form.get('id') ?? 0);
     if (!Number.isInteger(id) || id <= 0) return back('/admin', 'bad-request');
 
-    if (action === 'unreply') clearReply(id);
-    else setReply(id, String(form.get('body') ?? ''));
+    const parent = getEntry(id);
+    if (!parent) return back('/admin', 'bad-request');
+
+    const body = validateReply(form.get('body'));
+    const files = pickFiles(form);
+    const existing = parent.replies[0];
+    const existingCount = existing?.attachments.length ?? 0;
+
+    if (existingCount + files.length > MAX_IMAGES_PER_ENTRY) return back('/admin', 'too-many-images');
+    for (const file of files) {
+      if (!ALLOWED_MIME.includes(file.type)) return back('/admin', 'bad-image');
+      if (file.size > MAX_IMAGE_BYTES) return back('/admin', 'image-too-large');
+    }
+
+    if (body.length === 0 && files.length === 0 && existingCount === 0) return back('/admin', 'empty');
+
+    const stored = [];
+    try {
+      for (const file of files) {
+        stored.push(await saveImage(Buffer.from(await file.arrayBuffer()), file.type));
+      }
+    } catch {
+      for (const image of stored) removeImage(image.path);
+      return back('/admin', 'bad-image');
+    }
+
+    const replyId = saveReply(id, body);
+    for (const image of stored) addAttachment(replyId, image);
+
+    return back('/admin', 'replied');
+  }
+
+  if (action === 'unreply') {
+    const id = Number(form.get('id') ?? 0);
+    if (!Number.isInteger(id) || id <= 0) return back('/admin', 'bad-request');
+
+    // 先拿到附件路径，删完记录再把磁盘文件也清掉，避免留下孤儿图片
+    const paths = removeReplyOf(id);
+    for (const path of paths) removeImage(path);
 
     return back('/admin', 'replied');
   }
@@ -80,7 +135,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     if (op === 'approve') setStatus(id, 'published');
     else if (op === 'reject') setStatus(id, 'rejected');
     else if (op === 'delete') {
-      // 先拿到附件路径，删完记录再把磁盘文件也清掉，避免留下孤儿图片
+      // 删除主内容时会连它的回复一起删，图片文件也一并清掉
       const paths = removeEntry(id);
       for (const path of paths) removeImage(path);
     } else return back('/admin', 'bad-request');

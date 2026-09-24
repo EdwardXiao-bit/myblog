@@ -1,0 +1,118 @@
+---
+/**
+ * 表情面板：点一下把表情插到指定 textarea 的光标处。
+ * 本地实现，没引第三方库。
+ *
+ * 页面上可以出现多个实例（留言表单一个、每个回复框一个）。
+ * 脚本只挂一次，靠 data-wired 标记保证不会重复绑定——
+ * 否则同一个面板被绑两次，插一次表情会出现两个。
+ */
+interface Props {
+  /** 要插入到哪个 textarea（元素 id） */
+  target: string;
+}
+
+const { target } = Astro.props;
+
+const emojis = [
+  '😀', '😄', '😁', '😂', '🤣', '😊', '😍', '🤔',
+  '😅', '😭', '😴', '🤯', '😎', '🥹', '🙃', '👍',
+  '👏', '🙏', '💪', '🎉', '🔥', '✨', '❤️', '💚',
+  '🌸', '🌙', '☕', '🍜', '🚲', '🎮', '🎹', '🏊',
+];
+---
+
+<div class="emoji" data-emoji-picker data-target={target}>
+  <button type="button" class="tool" data-emoji-toggle aria-expanded="false">😊 表情</button>
+
+  <div class="emoji-panel" data-emoji-panel hidden>
+    {emojis.map((emoji) => <button type="button" data-emoji={emoji} aria-label={emoji}>{emoji}</button>)}
+  </div>
+</div>
+
+<style>
+  .emoji {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .tool {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 12px;
+    color: var(--text-soft);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .tool:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .emoji-panel {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    gap: 4px;
+    padding: 10px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .emoji-panel[hidden] {
+    display: none;
+  }
+
+  .emoji-panel button {
+    font-size: 1.125rem;
+    line-height: 1;
+    padding: 6px 0;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .emoji-panel button:hover {
+    background: var(--bg-elev);
+    border-color: var(--border);
+  }
+</style>
+
+<script>
+  for (const picker of document.querySelectorAll<HTMLElement>('[data-emoji-picker]')) {
+    if (picker.dataset.wired) continue;
+    picker.dataset.wired = '1';
+
+    const textarea = document.getElementById(picker.dataset.target ?? '') as HTMLTextAreaElement | null;
+    const panel = picker.querySelector<HTMLElement>('[data-emoji-panel]');
+    const toggle = picker.querySelector<HTMLElement>('[data-emoji-toggle]');
+    if (!textarea || !panel || !toggle) continue;
+
+    toggle.addEventListener('click', () => {
+      panel.toggleAttribute('hidden');
+      toggle.setAttribute('aria-expanded', panel.hasAttribute('hidden') ? 'false' : 'true');
+    });
+
+    for (const button of picker.querySelectorAll<HTMLElement>('button[data-emoji]')) {
+      button.addEventListener('click', () => {
+        const emoji = button.dataset.emoji ?? '';
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? start;
+
+        textarea.value = textarea.value.slice(0, start) + emoji + textarea.value.slice(end);
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+
+        // 手动派发一次 input，字数统计之类的监听器才会跟上
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+  }
+</script>

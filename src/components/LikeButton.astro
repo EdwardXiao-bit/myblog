@@ -1,0 +1,101 @@
+---
+/**
+ * 点赞按钮。留言和回复共用。
+ * 无脚本时是普通表单提交（跳回原处），有脚本时原地更新数字、不刷新。
+ */
+interface Props {
+  entry: { id: number; likeCount: number; likedByMe: boolean };
+  /** 提交后跳回哪里（无脚本时用） */
+  back: string;
+}
+
+const { entry, back } = Astro.props;
+---
+
+<form class="like" method="post" action="/api/like" data-like>
+  <input type="hidden" name="id" value={entry.id} />
+  <input type="hidden" name="back" value={back} />
+  <button
+    type="submit"
+    class={entry.likedByMe ? 'liked' : ''}
+    aria-pressed={entry.likedByMe ? 'true' : 'false'}
+    title={entry.likedByMe ? '你点过赞了' : '点个赞'}
+  >
+    <span aria-hidden="true">♥</span>
+    <span class="like-count">{entry.likeCount}</span>
+  </button>
+</form>
+
+<style>
+  .like {
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  .like button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 12px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .like button:hover {
+    color: #c0392b;
+    border-color: #c0392b;
+  }
+
+  .like button.liked {
+    color: #c0392b;
+    border-color: #c0392b;
+    background: rgba(192, 57, 43, 0.08);
+  }
+
+  .like button:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+
+  .like-count {
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-like]')) {
+    if (form.dataset.wired) continue;
+    form.dataset.wired = '1';
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = form.querySelector('button');
+      if (!button || button.disabled) return;
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { accept: 'application/json' },
+          body: new FormData(form),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+
+        const data = (await res.json()) as { count: number; liked: boolean };
+        const count = button.querySelector('.like-count');
+        if (count) count.textContent = String(data.count);
+        button.classList.toggle('liked', data.liked);
+        button.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
+        button.disabled = true;
+      } catch {
+        // 出问题就退回普通表单提交，至少让用户能点上
+        form.submit();
+      }
+    });
+  }
+</script>
