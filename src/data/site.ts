@@ -105,7 +105,8 @@ export const site: SiteConfig = {
     { emoji: '🎮', name: '游戏', note: 'Steam 好友 ID：1421154588（EdwardDavis）' },
     { emoji: '🎹', name: '钢琴', note: '微信视频号：EdwardDavisXiao' },
     { emoji: '🏊‍♀️', name: '游泳', },
-    { emoji: '🎶', name: '听歌', note: '古典，摇滚，爵士，伍佰，...'},
+    { emoji: '🎶', name: '听歌', note: '古典，摇滚，爵士，伍佰，...' },
+    { emoji: '🐱🐶', name: '猫猫狗狗' }
   ],
 
   // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
