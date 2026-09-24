@@ -16,6 +16,10 @@ data/*.db-*
 # （部署时它和数据库一样需要持久化磁盘）
 data/uploads/
 
+# 照片打码：原图备份 + 效果预览，都是本地临时产物
+data/originals/
+data/preview/
+
 # 环境变量
 .env
 .env.production
