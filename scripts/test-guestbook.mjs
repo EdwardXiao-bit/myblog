@@ -11,6 +11,7 @@
 // 服务器进程会带上 GUESTBOOK_DB，而脚本读的是同一个文件（WAL 模式支持并发读）。
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:4322';
@@ -341,6 +342,186 @@ section('13. MODERATION=off：提交即公开（另一个实例）');
 
   const html = await bodyOf(await get(OPEN_BASE, '/guestbook'));
   check('立刻出现在留言墙', html.includes(BODY));
+}
+
+// ============================================================
+section('14. 日记的署名与标签');
+{
+  const DIARY = '今天把留言板做完了，心情不错。'; // 第 10 节建的公开日记
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+
+  check('日记带「站主日记」标签', html.includes('站主日记'));
+
+  // 标签前面应该是站主名，而不是「匿名」
+  const around = html.slice(Math.max(0, html.indexOf('站主日记') - 200), html.indexOf('站主日记'));
+  check('日记署名不是匿名', !around.includes('匿名'), around.slice(-60).trim());
+
+  check('日记正文正常显示', html.includes(DIARY));
+}
+
+section('15. 时间显示到分钟且用本地时区');
+{
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+
+  // 形如 2026年9月23日 23:44
+  const stamped = /(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{2}):(\d{2})/.test(html);
+  check('时间精确到分钟', stamped);
+
+  // 本地时间（UTC+8）应当和 UTC 显示不同——凌晨发的留言最容易暴露时区错误。
+  // 注意只查「可见文字」：<time datetime="..."> 属性里本来就该是 UTC 的机器可读时间，
+  // 在整页 HTML 里搜字符串会把它一起算进去，那是标准写法，不是 bug。
+  const visible = html.replace(/<[^>]*>/g, ' ');
+  const row = db().prepare("select created_at from entries where status='published' limit 1").get();
+  if (row) {
+    const d = new Date(row.created_at);
+    const localMinutes = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    const utcMinutes = String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+    if (localMinutes === utcMinutes) {
+      check('时间用本地时区', true, `本机与 UTC 恰好相同（${localMinutes}），无法区分`);
+    } else {
+      check(
+        '可见文字用本地时区而非 UTC',
+        visible.includes(localMinutes) && !visible.includes(utcMinutes),
+        `本地 ${localMinutes} / UTC ${utcMinutes}`
+      );
+    }
+  }
+}
+
+section('16. 图片上传');
+{
+  const sharp = createRequire(import.meta.url)('sharp');
+  const png = await sharp({
+    create: { width: 120, height: 80, channels: 3, background: '#2f6f62' },
+  })
+    .png()
+    .toBuffer();
+
+  const before = count('select count(*) as n from attachments');
+
+  const form = new FormData();
+  form.append('nickname', '带图的访客');
+  form.append('body', '这是我传的图');
+  form.append('ts', String(Date.now() - 5000));
+  form.append('images', new Blob([png], { type: 'image/png' }), 'test.png');
+
+  const res = await fetch(BASE + '/api/guestbook', {
+    method: 'POST',
+    body: form,
+    headers: { origin: BASE },
+    redirect: 'manual',
+  });
+  check('带图提交成功', res.status === 303, `status=${res.status}`);
+
+  const after = count('select count(*) as n from attachments');
+  check('附件记录已写入', after === before + 1, `${before} -> ${after}`);
+
+  const att = db().prepare('select * from attachments order by id desc limit 1').get();
+  check('存的是 webp 相对路径', String(att?.path ?? '').endsWith('.webp'), String(att?.path));
+  check('记录了尺寸', Number(att?.width) > 0 && Number(att?.height) > 0, `${att?.width}x${att?.height}`);
+
+  // 图片本身要取得回来
+  const img = await fetch(`${BASE}/uploads/${att.path}`);
+  check('上传的图片可访问', img.status === 200, `status=${img.status}`);
+  check('返回的 content-type 正确', (img.headers.get('content-type') ?? '').includes('image/webp'));
+
+  // 目录穿越防护
+  const evil = await fetch(`${BASE}/uploads/../../package.json`);
+  check('拒绝目录穿越', evil.status !== 200, `status=${evil.status}`);
+
+  // 审核通过后页面上应该出现这张图
+  const approve = await fetch(BASE + '/api/admin', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
+    body: new URLSearchParams({ action: 'moderate', id: String(att.entry_id), op: 'approve' }),
+    redirect: 'manual',
+  });
+  check('含图留言可审核', codeOf(approve) === 'done');
+
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+  check('审核后页面里出现该图片', html.includes(`/uploads/${att.path}`));
+}
+
+section('17. 点赞');
+{
+  const target = db().prepare("select id from entries where status='published' order by id limit 1").get();
+  const id = Number(target.id);
+
+  const before = count('select count(*) as n from likes where entry_id = ?', id);
+
+  const first = await fetch(BASE + '/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+    body: new URLSearchParams({ id: String(id) }),
+  });
+  const payload = await first.json();
+  check('点赞返回 JSON', first.status === 200 && typeof payload.count === 'number', JSON.stringify(payload));
+  check('计数增加了', payload.count === before + 1, `${before} -> ${payload.count}`);
+  check('标记为我点过', payload.liked === true);
+
+  // 同一个来源再点一次不该重复计数
+  const second = await fetch(BASE + '/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+    body: new URLSearchParams({ id: String(id) }),
+  });
+  const again = await second.json();
+  check('重复点赞不重复计数', again.count === payload.count, `${payload.count} -> ${again.count}`);
+
+  // 未审核的不允许点赞
+  const pendingRow = db().prepare("select id from entries where status='pending' limit 1").get();
+  if (pendingRow) {
+    const beforePending = count('select count(*) as n from likes where entry_id = ?', Number(pendingRow.id));
+    await fetch(BASE + '/api/like', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+      body: new URLSearchParams({ id: String(pendingRow.id) }),
+    });
+    check(
+      '未审核的留言点不了赞',
+      count('select count(*) as n from likes where entry_id = ?', Number(pendingRow.id)) === beforePending
+    );
+  }
+
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+  check('页面上有点赞按钮和计数', html.includes('like-count') && html.includes(`value="${id}"`));
+}
+
+section('18. 站主回复');
+{
+  const target = db().prepare("select id from entries where status='published' order by id limit 1").get();
+  const id = Number(target.id);
+  const REPLY = '谢谢，常来玩！';
+
+  // 未登录不能回复
+  await post(BASE, '/api/admin', { action: 'reply', id: String(id), body: '偷偷回复' });
+  check('未登录回复被拒', !db().prepare('select reply from entries where id = ?').get(id)?.reply);
+
+  const form = new URLSearchParams({ action: 'reply', id: String(id), body: REPLY });
+  const res = await fetch(BASE + '/api/admin', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
+    body: form,
+    redirect: 'manual',
+  });
+  check('登录后可以回复', codeOf(res) === 'replied', `m=${codeOf(res)}`);
+
+  const row = db().prepare('select reply, replied_at from entries where id = ?').get(id);
+  check('回复已入库', row?.reply === REPLY);
+  check('记录了回复时间', Boolean(row?.replied_at));
+
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+  check('留言板上能看到回复', html.includes(REPLY));
+  check('回复带站主标记', html.includes('回复'));
+
+  // 删除回复
+  await fetch(BASE + '/api/admin', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
+    body: new URLSearchParams({ action: 'unreply', id: String(id) }),
+    redirect: 'manual',
+  });
+  check('可以删除回复', !db().prepare('select reply from entries where id = ?').get(id)?.reply);
 }
 
 // ---------- 汇总 ----------

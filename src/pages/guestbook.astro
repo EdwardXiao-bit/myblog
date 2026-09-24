@@ -3,29 +3,49 @@ export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
-import { LIMITS, listFeed, listPending, moderationOn } from '../lib/guestbook';
+import { LIMITS, hashIp, listFeed, listPending, moderationOn } from '../lib/guestbook';
+import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
 import { adminCookie, verifyToken } from '../lib/auth';
-import { formatDate } from '../utils/format';
+import { formatDateTime } from '../utils/format';
 
-const entries = listFeed();
+// 拿到访问者的 IP 哈希，用来判断「我点过赞没有」。拿不到就退化成不显示已赞状态。
+let ipHash: string | null = null;
+try {
+  ipHash = hashIp(Astro.clientAddress ?? 'unknown');
+} catch {
+  ipHash = null;
+}
+
+const entries = listFeed(LIMITS.feed, ipHash);
 const authed = verifyToken(Astro.cookies.get(adminCookie.name)?.value);
 const moderated = moderationOn();
-
-// 登录状态下一并显示待审核条数——否则站长提交完只看到「已收到」，
-// 不知道下一步要自己去管理页点通过。
 const pendingCount = authed ? listPending().length : 0;
+
+const maxImages = MAX_IMAGES_PER_ENTRY;
+const maxImageMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
 
 const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   ok: { tone: 'ok', text: '收到了，谢谢你的留言！' },
   pending: { tone: 'ok', text: '留言已收到。这个站的留言要站长审核通过后才会公开显示。' },
   rate: { tone: 'warn', text: `提交有点频繁，同一来源一小时最多 ${LIMITS.perHour} 条，稍后再试。` },
-  empty: { tone: 'warn', text: '内容不能为空。' },
+  empty: { tone: 'warn', text: '写点什么，或者选一张图片。' },
   'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字，精简一下再发。` },
+  'too-many-images': { tone: 'warn', text: `最多只能带 ${maxImages} 张图片。` },
+  'image-too-large': { tone: 'warn', text: `单张图片不能超过 ${maxImageMb} MB。` },
+  'bad-image': { tone: 'warn', text: '图片格式不支持，请用 jpg / png / webp / gif。' },
   'bad-request': { tone: 'warn', text: '请求来源校验没通过，已拒绝。' },
 };
 
 const code = Astro.url.searchParams.get('m') ?? '';
 const notice = notices[code];
+
+// 表情面板：够用就好，不引第三方库
+const emojis = [
+  '😀', '😄', '😁', '😂', '🤣', '😊', '😍', '🤔',
+  '😅', '😭', '😴', '🤯', '😎', '🥹', '🙃', '👍',
+  '👏', '🙏', '💪', '🎉', '🔥', '✨', '❤️', '💚',
+  '🌸', '🌙', '☕', '🍜', '🚲', '🎮', '🎹', '🏊',
+];
 ---
 
 <BaseLayout title={`留言板 · ${site.name}`} description={`给 ${site.name} 留言，可以匿名`}>
@@ -36,7 +56,7 @@ const notice = notices[code];
     </div>
 
     <p class="intro">
-      想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示。
+      想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示；也可以只发图片。
       {
         authed && (
           <a class="admin-hint" href="/admin">
@@ -54,7 +74,7 @@ const notice = notices[code];
       )
     }
 
-    <form class="gb-form" method="post" action="/api/guestbook">
+    <form class="gb-form" method="post" action="/api/guestbook" enctype="multipart/form-data">
       <div class="field">
         <label for="nickname">昵称</label>
         <input
@@ -74,8 +94,26 @@ const notice = notices[code];
           name="body"
           rows="4"
           maxlength={LIMITS.body}
-          required
           placeholder="说点什么吧……"></textarea>
+
+        <div class="editor-bar">
+          <button type="button" id="emoji-toggle" class="tool" aria-expanded="false" aria-controls="emoji-picker">
+            😊 表情
+          </button>
+          <span class="counter"><span id="char-count">0</span> / {LIMITS.body}</span>
+        </div>
+
+        <div id="emoji-picker" class="emoji-picker" hidden>
+          {emojis.map((emoji) => <button type="button" data-emoji={emoji} aria-label={emoji}>{emoji}</button>)}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="images">
+          配图（可选，最多 {maxImages} 张，单张不超过 {maxImageMb} MB）
+        </label>
+        <input id="images" name="images" type="file" accept="image/*" multiple />
+        <p class="file-note" id="file-note"></p>
       </div>
 
       {/* 蜜罐：真人看不见，机器人会填 */}
@@ -98,13 +136,65 @@ const notice = notices[code];
       ) : (
         <ol class="feed">
           {entries.map((entry) => (
-            <li class="entry">
+            <li class="entry" id={`entry-${entry.id}`}>
               <div class="entry-head">
-                <span class="who">{entry.nickname ?? '匿名'}</span>
-                {entry.kind === 'diary' && <span class="badge">日记</span>}
-                <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+                {entry.kind === 'diary' ? (
+                  <>
+                    <span class="who">{site.name}</span>
+                    <span class="badge">站主日记</span>
+                  </>
+                ) : (
+                  <span class="who">{entry.nickname ?? '匿名'}</span>
+                )}
+                <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
               </div>
-              <p class="text">{entry.body}</p>
+
+              {entry.body && <p class="text">{entry.body}</p>}
+
+              {entry.attachments.length > 0 && (
+                <ul class="shots">
+                  {entry.attachments.map((image) => (
+                    <li>
+                      <a href={`/uploads/${image.path}`} target="_blank" rel="noopener" title="查看原图">
+                        <img
+                          src={`/uploads/${image.path}`}
+                          alt="留言配图"
+                          loading="lazy"
+                          decoding="async"
+                          width={image.width ?? undefined}
+                          height={image.height ?? undefined}
+                        />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {entry.reply && (
+                <div class="reply">
+                  <p class="reply-head">{site.name} 回复</p>
+                  <p class="reply-body">{entry.reply}</p>
+                  {entry.repliedAt && (
+                    <time class="reply-time" datetime={entry.repliedAt}>
+                      {formatDateTime(new Date(entry.repliedAt))}
+                    </time>
+                  )}
+                </div>
+              )}
+
+              <form class="like" method="post" action="/api/like" data-like>
+                <input type="hidden" name="id" value={entry.id} />
+                <input type="hidden" name="back" value="/guestbook" />
+                <button
+                  type="submit"
+                  class={entry.likedByMe ? 'liked' : ''}
+                  aria-pressed={entry.likedByMe ? 'true' : 'false'}
+                  title={entry.likedByMe ? '你点过赞了' : '点个赞'}
+                >
+                  <span class="heart" aria-hidden="true">♥</span>
+                  <span class="like-count">{entry.likeCount}</span>
+                </button>
+              </form>
             </li>
           ))}
         </ol>
@@ -172,7 +262,7 @@ const notice = notices[code];
     color: var(--text-muted);
   }
 
-  .field input,
+  .field input[type='text'],
   .field textarea {
     width: 100%;
     padding: 9px 12px;
@@ -186,7 +276,7 @@ const notice = notices[code];
   }
 
   /* 昵称是短字段，占满整行会很怪 */
-  .field input {
+  .field input[type='text'] {
     max-width: 320px;
   }
 
@@ -200,6 +290,76 @@ const notice = notices[code];
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .field input[type='file'] {
+    font-size: 0.875rem;
+    color: var(--text-soft);
+  }
+
+  .file-note {
+    font-size: 0.8125rem;
+    color: var(--accent);
+  }
+
+  /* 表情 */
+  .editor-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .tool {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 12px;
+    color: var(--text-soft);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .tool:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .counter {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .emoji-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    gap: 4px;
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .emoji-picker[hidden] {
+    display: none;
+  }
+
+  .emoji-picker button {
+    font-size: 1.125rem;
+    line-height: 1;
+    padding: 6px 0;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .emoji-picker button:hover {
+    background: var(--bg-elev);
+    border-color: var(--border);
   }
 
   /* 蜜罐字段：用定位移出视口，而不是 display:none —— 有些爬虫会跳过 display:none 的字段 */
@@ -257,6 +417,11 @@ const notice = notices[code];
     border-radius: var(--radius);
   }
 
+  /* 从别处跳过来的锚点，闪一下好找 */
+  .entry:target {
+    border-color: var(--accent);
+  }
+
   .entry-head {
     display: flex;
     align-items: center;
@@ -293,4 +458,177 @@ const notice = notices[code];
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+
+  /* 配图 */
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 240px));
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .shots a {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .shots a:hover {
+    border-color: var(--accent);
+  }
+
+  .shots img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: cover;
+  }
+
+  /* 站主回复 */
+  .reply {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--accent-soft);
+  }
+
+  .reply-head {
+    font-size: 0.8125rem;
+    font-weight: 550;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .reply-body {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .reply-time {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* 点赞 */
+  .like {
+    margin-top: 12px;
+  }
+
+  .like button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 12px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .like button:hover {
+    color: #c0392b;
+    border-color: #c0392b;
+  }
+
+  .like button.liked {
+    color: #c0392b;
+    border-color: #c0392b;
+    background: rgba(192, 57, 43, 0.08);
+  }
+
+  .like button:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+
+  .like-count {
+    font-variant-numeric: tabular-nums;
+  }
 </style>
+
+<script>
+  // 表情选择：插到光标处
+  const textarea = document.getElementById('body') as HTMLTextAreaElement | null;
+  const picker = document.getElementById('emoji-picker');
+  const toggle = document.getElementById('emoji-toggle');
+  const counter = document.getElementById('char-count');
+
+  const updateCount = () => {
+    if (textarea && counter) counter.textContent = String(Array.from(textarea.value).length);
+  };
+
+  textarea?.addEventListener('input', updateCount);
+  updateCount();
+
+  toggle?.addEventListener('click', () => {
+    if (!picker) return;
+    picker.hidden = !picker.hidden;
+    toggle.setAttribute('aria-expanded', picker.hidden ? 'false' : 'true');
+  });
+
+  for (const button of picker?.querySelectorAll('button[data-emoji]') ?? []) {
+    button.addEventListener('click', () => {
+      if (!textarea) return;
+      const emoji = (button as HTMLElement).dataset.emoji ?? '';
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? start;
+
+      textarea.value = textarea.value.slice(0, start) + emoji + textarea.value.slice(end);
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+      updateCount();
+    });
+  }
+
+  // 选了哪些图，给个反馈
+  const fileInput = document.getElementById('images') as HTMLInputElement | null;
+  const fileNote = document.getElementById('file-note');
+
+  fileInput?.addEventListener('change', () => {
+    if (!fileNote) return;
+    const count = fileInput.files?.length ?? 0;
+    fileNote.textContent = count > 0 ? `已选 ${count} 张图片` : '';
+  });
+
+  // 点赞：有脚本就不刷新页面，没脚本表单照常提交
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-like]')) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = form.querySelector('button');
+      if (!button || button.disabled) return;
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { accept: 'application/json' },
+          body: new FormData(form),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+
+        const data = (await res.json()) as { count: number; liked: boolean };
+        const count = button.querySelector('.like-count');
+        if (count) count.textContent = String(data.count);
+        button.classList.toggle('liked', data.liked);
+        button.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
+        button.disabled = true;
+      } catch {
+        // 出问题就退回普通表单提交，至少让用户能点上
+        form.submit();
+      }
+    });
+  }
+</script>

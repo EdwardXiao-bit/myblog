@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { adminCookie, checkPassword, issueToken, verifyToken } from '../../lib/auth';
-import { createEntry, removeEntry, setStatus, validateMessage } from '../../lib/guestbook';
+import { clearReply, createEntry, removeEntry, setReply, setStatus, validateMessage } from '../../lib/guestbook';
+import { removeImage } from '../../lib/storage';
 
 export const prerender = false;
 
@@ -50,6 +51,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const visibility = String(form.get('visibility') ?? 'public');
     const { ok, reason, body } = validateMessage(null, form.get('body'));
     if (!ok) return back('/admin', reason === 'too-long' ? 'too-long' : 'empty');
+    if (body.trim().length === 0) return back('/admin', 'empty');
 
     createEntry({
       kind: 'diary',
@@ -60,6 +62,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return back('/admin', visibility === 'private' ? 'diary-private' : 'diary-public');
   }
 
+  if (action === 'reply' || action === 'unreply') {
+    const id = Number(form.get('id') ?? 0);
+    if (!Number.isInteger(id) || id <= 0) return back('/admin', 'bad-request');
+
+    if (action === 'unreply') clearReply(id);
+    else setReply(id, String(form.get('body') ?? ''));
+
+    return back('/admin', 'replied');
+  }
+
   if (action === 'moderate') {
     const id = Number(form.get('id') ?? 0);
     const op = String(form.get('op') ?? '');
@@ -67,8 +79,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     if (op === 'approve') setStatus(id, 'published');
     else if (op === 'reject') setStatus(id, 'rejected');
-    else if (op === 'delete') removeEntry(id);
-    else return back('/admin', 'bad-request');
+    else if (op === 'delete') {
+      // 先拿到附件路径，删完记录再把磁盘文件也清掉，避免留下孤儿图片
+      const paths = removeEntry(id);
+      for (const path of paths) removeImage(path);
+    } else return back('/admin', 'bad-request');
 
     return back('/admin', 'done');
   }

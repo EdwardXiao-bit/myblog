@@ -2,10 +2,11 @@
 export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ReplyBox from '../components/ReplyBox.astro';
 import { site } from '../data/site';
 import { adminConfigured, adminCookie, verifyToken } from '../lib/auth';
 import { LIMITS, listPending, listRecent, stats } from '../lib/guestbook';
-import { formatDate } from '../utils/format';
+import { formatDateTime } from '../utils/format';
 
 const configured = adminConfigured();
 const authed = configured && verifyToken(Astro.cookies.get(adminCookie.name)?.value);
@@ -22,6 +23,7 @@ const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字。` },
   'diary-public': { tone: 'ok', text: '日记已发布，留言板上能看到。' },
   'diary-private': { tone: 'ok', text: '日记已保存为「仅自己可见」。' },
+  replied: { tone: 'ok', text: '回复已保存。' },
   done: { tone: 'ok', text: '操作完成。' },
   'bad-request': { tone: 'warn', text: '请求不合法，已忽略。' },
 };
@@ -142,9 +144,20 @@ const statusLabel: Record<string, string> = {
                   <li>
                     <div class="q-head">
                       <span class="who">{entry.nickname ?? '匿名'}</span>
-                      <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+                      <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
                     </div>
-                    <p class="text">{entry.body}</p>
+                    {entry.body && <p class="text">{entry.body}</p>}
+                    {entry.attachments.length > 0 && (
+                      <ul class="shots">
+                        {entry.attachments.map((image) => (
+                          <li>
+                            <a href={`/uploads/${image.path}`} target="_blank" rel="noopener">
+                              <img src={`/uploads/${image.path}`} alt="配图" loading="lazy" />
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <form method="post" action="/api/admin" class="actions">
                       <input type="hidden" name="action" value="moderate" />
                       <input type="hidden" name="id" value={entry.id} />
@@ -152,6 +165,7 @@ const statusLabel: Record<string, string> = {
                       <button name="op" value="reject">拒绝</button>
                       <button name="op" value="delete" class="danger">删除</button>
                     </form>
+                    <ReplyBox entry={entry} />
                   </li>
                 ))}
               </ul>
@@ -169,11 +183,22 @@ const statusLabel: Record<string, string> = {
                     <div class="q-head">
                       <span class={`status status-${entry.status}`}>{statusLabel[entry.status]}</span>
                       <span class="who">
-                        {entry.kind === 'diary' ? '日记' : (entry.nickname ?? '匿名')}
+                        {entry.kind === 'diary' ? `${site.name}（日记）` : (entry.nickname ?? '匿名')}
                       </span>
-                      <time datetime={entry.createdAt}>{formatDate(new Date(entry.createdAt))}</time>
+                      <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
                     </div>
-                    <p class="text">{entry.body}</p>
+                    {entry.body && <p class="text">{entry.body}</p>}
+                    {entry.attachments.length > 0 && (
+                      <ul class="shots">
+                        {entry.attachments.map((image) => (
+                          <li>
+                            <a href={`/uploads/${image.path}`} target="_blank" rel="noopener">
+                              <img src={`/uploads/${image.path}`} alt="配图" loading="lazy" />
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <form method="post" action="/api/admin" class="actions">
                       <input type="hidden" name="action" value="moderate" />
                       <input type="hidden" name="id" value={entry.id} />
@@ -186,6 +211,7 @@ const statusLabel: Record<string, string> = {
                         删除
                       </button>
                     </form>
+                    <ReplyBox entry={entry} />
                   </li>
                 ))}
               </ul>
@@ -465,6 +491,36 @@ const statusLabel: Record<string, string> = {
     line-height: 1.7;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+
+  /* 留言配图：审核时得看得见内容才好判断 */
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 180px));
+    gap: 8px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .shots a {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .shots a:hover {
+    border-color: var(--accent);
+  }
+
+  .shots img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 240px;
+    object-fit: cover;
   }
 
   .actions {

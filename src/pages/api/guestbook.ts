@@ -1,11 +1,20 @@
 import type { APIRoute } from 'astro';
 import {
+  addAttachment,
   createEntry,
   hashIp,
+  isEmptyMessage,
   isRateLimited,
   moderationOn,
   validateMessage,
 } from '../../lib/guestbook';
+import {
+  ALLOWED_MIME,
+  MAX_IMAGES_PER_ENTRY,
+  MAX_IMAGE_BYTES,
+  removeImage,
+  saveImage,
+} from '../../lib/storage';
 
 // 需要服务端处理，所以明确退出预渲染
 export const prerender = false;
@@ -42,6 +51,21 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   const { ok, reason, nickname, body } = validateMessage(form.get('nickname'), form.get('body'));
   if (!ok) return back(reason === 'too-long' ? 'too-long' : 'empty');
 
+  // 图片：先检查，再处理
+  const files = form
+    .getAll('images')
+    .filter((item): item is File => typeof item === 'object' && 'size' in item && item.size > 0);
+
+  if (files.length > MAX_IMAGES_PER_ENTRY) return back('too-many-images');
+
+  for (const file of files) {
+    if (!ALLOWED_MIME.includes(file.type)) return back('bad-image');
+    if (file.size > MAX_IMAGE_BYTES) return back('image-too-large');
+  }
+
+  // 纯图片没有文字也算有效留言，两者都空才拒绝
+  if (isEmptyMessage(body, files.length)) return back('empty');
+
   let ip = 'unknown';
   try {
     ip = clientAddress ?? 'unknown';
@@ -52,8 +76,28 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   const ipHash = hashIp(ip);
   if (isRateLimited(ipHash)) return back('rate');
 
+  // 先把图存下来，再建条目；中途失败就把已存的图删掉，不留孤儿文件
+  const stored = [];
+  try {
+    for (const file of files) {
+      stored.push(await saveImage(Buffer.from(await file.arrayBuffer()), file.type));
+    }
+  } catch {
+    for (const image of stored) removeImage(image.path);
+    return back('bad-image');
+  }
+
   const status = moderationOn() ? 'pending' : 'published';
-  createEntry({ kind: 'message', nickname, body, status, ipHash });
+
+  let entryId: number;
+  try {
+    entryId = createEntry({ kind: 'message', nickname, body, status, ipHash });
+  } catch {
+    for (const image of stored) removeImage(image.path);
+    return back('bad-request');
+  }
+
+  for (const image of stored) addAttachment(entryId, image);
 
   return back(status === 'pending' ? 'pending' : 'ok');
 };

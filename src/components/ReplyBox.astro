@@ -1,0 +1,114 @@
+---
+import type { Entry } from '../lib/guestbook';
+
+/**
+ * 站主回复框。管理页的「待审核」和「最近条目」两处都用它。
+ *
+ * 两个按钮都带 name="action"，只提交被点的那个；
+ * 如果额外放一个 hidden 的 action，表单会同时带上两个值，后端取到的是先出现的那个。
+ */
+interface Props {
+  entry: Entry;
+}
+
+const { entry } = Astro.props;
+const fieldId = `reply-${entry.id}`;
+---
+
+<form class="reply-form" method="post" action="/api/admin">
+  <label class="reply-label" for={fieldId}>
+    {entry.reply ? '修改回复' : '回复这条'}
+  </label>
+
+  <textarea
+    id={fieldId}
+    name="body"
+    rows="2"
+    maxlength="500"
+    placeholder="以站主身份回复……">{entry.reply ?? ''}</textarea>
+
+  <div class="reply-actions">
+    <input type="hidden" name="id" value={entry.id} />
+    <button type="submit" name="action" value="reply" class="ok">
+      {entry.reply ? '更新回复' : '发布回复'}
+    </button>
+    {
+      entry.reply && (
+        <button type="submit" name="action" value="unreply" class="danger" formnovalidate>
+          删除回复
+        </button>
+      )
+    }
+  </div>
+</form>
+
+<style>
+  .reply-form {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+
+  .reply-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .reply-form textarea {
+    width: 100%;
+    padding: 8px 11px;
+    font: inherit;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+
+  .reply-form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .reply-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .reply-actions button {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 5px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .reply-actions .ok {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .reply-actions .ok:hover {
+    color: #fff;
+    background: var(--accent);
+  }
+
+  .reply-actions .danger {
+    color: #b04a3a;
+    border-color: rgba(176, 74, 58, 0.5);
+  }
+
+  .reply-actions .danger:hover {
+    color: #fff;
+    background: #b04a3a;
+    border-color: #b04a3a;
+  }
+</style>

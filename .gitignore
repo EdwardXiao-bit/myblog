@@ -12,6 +12,10 @@ node_modules/
 data/*.db
 data/*.db-*
 
+# 留言上传的图片：运行时数据，不进版本库
+# （部署时它和数据库一样需要持久化磁盘）
+data/uploads/
+
 # 环境变量
 .env
 .env.production
