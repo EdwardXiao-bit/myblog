@@ -6,9 +6,8 @@ import EmojiPicker from '../components/EmojiPicker.astro';
 import ReactionBar from '../components/ReactionBar.astro';
 import ReplyList from '../components/ReplyList.astro';
 import { site } from '../data/site';
-import { LIMITS, hashIp, listFeed, listPending, moderationOn } from '../lib/guestbook';
+import { LIMITS, hashIp, listFeed, moderationOn } from '../lib/guestbook';
 import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
-import { adminCookie, verifyToken } from '../lib/auth';
 import { formatDateTime } from '../utils/format';
 
 // 拿到访问者的 IP 哈希，用来判断「我点过赞没有」。拿不到就退化得不显示已赞状态。
@@ -20,9 +19,7 @@ try {
 }
 
 const entries = listFeed(LIMITS.feed, ipHash);
-const authed = verifyToken(Astro.cookies.get(adminCookie.name)?.value);
 const moderated = moderationOn();
-const pendingCount = authed ? listPending().length : 0;
 
 const maxImages = MAX_IMAGES_PER_ENTRY;
 const maxImageMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
@@ -52,13 +49,6 @@ const notice = notices[code];
 
     <p class="intro">
       想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示；也可以只发图片。
-      {
-        authed && (
-          <a class="admin-hint" href="/admin">
-            → 管理页{pendingCount > 0 ? `（${pendingCount} 条待审核）` : ''}
-          </a>
-        )
-      }
     </p>
 
     {
@@ -175,11 +165,6 @@ const notice = notices[code];
     font-size: 0.9375rem;
     color: var(--text-soft);
     margin-bottom: 20px;
-  }
-
-  .admin-hint {
-    margin-left: 8px;
-    font-size: 0.875rem;
   }
 
   .notice {
