@@ -26,7 +26,13 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     }
   }
 
-  const form = await request.formData();
+  // 非表单请求会抛异常，不接住就是 500（机器人常这么打）
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
   const id = Number(form.get('id') ?? 0);
   const back = safeBack(form.get('back'));
 

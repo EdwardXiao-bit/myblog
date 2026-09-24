@@ -38,7 +38,13 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     }
   }
 
-  const form = await request.formData();
+  // 非表单请求会抛异常，不接住就是 500（机器人常这么打）
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
   const action = String(form.get('action') ?? '');
 
   // ---- 登录（唯一不需要已登录的动作）----

@@ -38,7 +38,14 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     }
   }
 
-  const form = await request.formData();
+  // 非表单请求（机器人直接发 JSON、或 content-type 不对）会在这里抛异常，
+  // 不接住就会变成 500 并往日志里刷堆栈——按「请求不合法」处理即可。
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return back('bad-request');
+  }
 
   // 蜜罐：这个字段被 CSS 藏起来了，真人看不到，机器人会老老实实填上。
   // 命中就当垃圾静默丢掉——不给提示，免得对方知道被识破了。

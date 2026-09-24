@@ -11,6 +11,7 @@
     "serve": "node dist/server/entry.mjs",
     "check:build": "node scripts/check-build.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:prod": "node scripts/smoke-prod.mjs",
     "check:links": "node scripts/check-links.mjs",
     "test:guestbook": "node scripts/test-guestbook.mjs",
     "test:migration": "node scripts/test-migration.mjs"
