@@ -2,7 +2,7 @@
 import type { Entry } from '../lib/guestbook';
 import { site } from '../data/site';
 import { formatDateTime } from '../utils/format';
-import LikeButton from './LikeButton.astro';
+import ReactionBar from './ReactionBar.astro';
 
 /**
  * 回复列表。留言板和留言管理页共用。
@@ -44,7 +44,7 @@ const { replies, canManage = false, back } = Astro.props;
           )}
 
           <div class="reply-foot">
-            <LikeButton entry={reply} back={back} />
+            <ReactionBar entry={reply} back={back} />
             {canManage && (
               <form method="post" action="/api/admin">
                 <input type="hidden" name="action" value="unreply" />
@@ -137,10 +137,15 @@ const { replies, canManage = false, back } = Astro.props;
   .reply-foot {
     display: flex;
     align-items: center;
-    /* 点赞和「删除回复」一起靠右 */
+    /* 点赞、贴表情和「删除回复」一起靠右 */
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+  }
+
+  /* ReactionBar 自带的外边距在这里是多余的（这一行本身就有间距） */
+  .reply-foot :global(.bar) {
+    margin-top: 0;
   }
 
   .danger {

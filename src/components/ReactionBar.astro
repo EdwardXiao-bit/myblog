@@ -1,0 +1,281 @@
+---
+import type { Entry } from '../lib/guestbook';
+import { REACTION_EMOJIS } from '../lib/reactions';
+import LikeButton from './LikeButton.astro';
+
+/**
+ * 点赞 + 表情反应。
+ *
+ * 「＋」用 <details>/<summary> 实现展开，面板里的每个表情是一个
+ * `<button form="...">` —— 靠 form 属性提交外面那个表单。
+ * 所以**不写一行 JS 也能贴表情**，脚本只是让它不用刷新页面。
+ */
+interface Props {
+  entry: Entry;
+  back: string;
+}
+
+const { entry, back } = Astro.props;
+const formId = `react-form-${entry.id}`;
+---
+
+<div class="bar" data-react-bar data-id={entry.id} data-back={back}>
+  <LikeButton entry={entry} back={back} />
+
+  <span class="chips" data-react-chips>
+    {
+      entry.reactions.map((reaction) => (
+        <form method="post" action="/api/react" data-react-chip>
+          <input type="hidden" name="id" value={entry.id} />
+          <input type="hidden" name="emoji" value={reaction.emoji} />
+          <input type="hidden" name="back" value={back} />
+          <button
+            type="submit"
+            class={reaction.mine ? 'chip mine' : 'chip'}
+            title={reaction.mine ? '再点一下取消' : '也贴一个'}
+            aria-pressed={reaction.mine ? 'true' : 'false'}
+          >
+            <span class="e">{reaction.emoji}</span>
+            <span class="n">{reaction.count}</span>
+          </button>
+        </form>
+      ))
+    }
+  </span>
+
+  <details class="add">
+    <summary title="贴一个表情" aria-label="贴一个表情">＋</summary>
+    <div class="panel">
+      {
+        REACTION_EMOJIS.map((emoji) => (
+          <button type="submit" form={formId} name="emoji" value={emoji} aria-label={emoji}>
+            {emoji}
+          </button>
+        ))
+      }
+    </div>
+  </details>
+
+  {/* 贴新表情用的表单：上面的表情按钮靠 form 属性提交它 */}
+  <form id={formId} method="post" action="/api/react" data-react-add>
+    <input type="hidden" name="id" value={entry.id} />
+    <input type="hidden" name="back" value={back} />
+  </form>
+</div>
+
+<style>
+  .bar {
+    display: flex;
+    align-items: center;
+    /* 和卡片里其它操作一样靠右 */
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  /* LikeButton 自带的外边距在工具栏里是多余的 */
+  .bar :global(.like) {
+    margin-top: 0;
+  }
+
+  /* display: contents 让每个 chip 的表单直接成为 .bar 的 flex 子项 */
+  .chips {
+    display: contents;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 4px 11px;
+    color: var(--text-soft);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .chip:hover {
+    border-color: var(--border-strong);
+  }
+
+  .chip.mine {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .chip .e {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .chip .n {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 添加表情 */
+  .add {
+    position: relative;
+  }
+
+  .add summary {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 28px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    line-height: 1;
+    list-style: none;
+  }
+
+  .add summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .add summary:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .add[open] summary {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .panel button {
+    font-size: 1.125rem;
+    line-height: 1;
+    padding: 6px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .panel button:hover {
+    background: var(--bg-sunken);
+    border-color: var(--border);
+  }
+</style>
+
+<script>
+  type Reaction = { emoji: string; count: number; mine: boolean };
+
+  function buildChip(id: string, back: string, reaction: Reaction): HTMLElement {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/api/react';
+    form.dataset.reactChip = '';
+
+    for (const [name, value] of [
+      ['id', id],
+      ['emoji', reaction.emoji],
+      ['back', back],
+    ]) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.append(input);
+    }
+
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = reaction.mine ? 'chip mine' : 'chip';
+    button.title = reaction.mine ? '再点一下取消' : '也贴一个';
+    button.setAttribute('aria-pressed', reaction.mine ? 'true' : 'false');
+
+    const emojiSpan = document.createElement('span');
+    emojiSpan.className = 'e';
+    emojiSpan.textContent = reaction.emoji;
+
+    const countSpan = document.createElement('span');
+    countSpan.className = 'n';
+    countSpan.textContent = String(reaction.count);
+
+    button.append(emojiSpan, countSpan);
+    form.append(button);
+    return form;
+  }
+
+  for (const bar of document.querySelectorAll<HTMLElement>('[data-react-bar]')) {
+    if (bar.dataset.wired) continue;
+    bar.dataset.wired = '1';
+
+    const chips = bar.querySelector<HTMLElement>('[data-react-chips]');
+    const addForm = bar.querySelector<HTMLFormElement>('[data-react-add]');
+    const id = bar.dataset.id ?? '';
+    const back = bar.dataset.back ?? '/guestbook';
+    if (!chips || !addForm) continue;
+
+    const send = async (emoji: string) => {
+      const body = new FormData();
+      body.append('id', id);
+      body.append('emoji', emoji);
+      body.append('back', back);
+
+      const res = await fetch('/api/react', {
+        method: 'POST',
+        headers: { accept: 'application/json' },
+        body,
+      });
+      if (!res.ok) throw new Error(String(res.status));
+
+      const data = (await res.json()) as { reactions?: Reaction[] };
+      chips.replaceChildren(...(data.reactions ?? []).map((r) => buildChip(id, back, r)));
+    };
+
+    // 点已有的 chip：切换
+    chips.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      event.preventDefault();
+
+      const emoji = (form.querySelector('input[name="emoji"]') as HTMLInputElement | null)?.value ?? '';
+      send(emoji).catch(() => form.submit());
+    });
+
+    // 从面板里挑一个
+    for (const button of bar.querySelectorAll<HTMLButtonElement>('button[form]')) {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const emoji = button.value;
+        const details = button.closest('details');
+        if (details) details.open = false;
+
+        send(emoji).catch(() => {
+          // 脚本失败就退回普通提交，至少让人能贴上
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'emoji';
+          input.value = emoji;
+          addForm.append(input);
+          addForm.submit();
+        });
+      });
+    }
+  }
+</script>

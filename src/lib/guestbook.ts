@@ -23,6 +23,13 @@ export interface Attachment {
   height: number | null;
 }
 
+export interface Reaction {
+  emoji: string;
+  count: number;
+  /** 传了 ipHash 才有意义：我贴过这个表情没有 */
+  mine: boolean;
+}
+
 export interface Entry {
   id: number;
   kind: EntryKind;
@@ -36,6 +43,8 @@ export interface Entry {
   likeCount: number;
   /** 只有在查询时传了 ipHash 才有意义 */
   likedByMe: boolean;
+  /** 表情反应，按第一次被贴的时间排序 */
+  reactions: Reaction[];
   /** 挂在它下面的回复（回复自身不再嵌套） */
   replies: Entry[];
 }
@@ -179,6 +188,7 @@ function hydrate(rows: unknown[], ipHash?: string | null, withReplies = false): 
       attachments: [],
       likeCount: 0,
       likedByMe: false,
+      reactions: [],
       replies: [],
     };
   });
@@ -228,6 +238,36 @@ function hydrate(rows: unknown[], ipHash?: string | null, withReplies = false): 
     for (const m of mine) {
       const entry = byId.get(Number(m.entry_id));
       if (entry) entry.likedByMe = true;
+    }
+  }
+
+  // 表情反应：同一表情聚合成一个 chip，按第一次被贴的时间排
+  const reactionRows = db
+    .prepare(
+      `select entry_id, emoji, count(*) as n, min(created_at) as first_at
+         from reactions
+        where entry_id in (${marks})
+        group by entry_id, emoji
+        order by first_at`
+    )
+    .all(...ids) as Array<{ entry_id: number | bigint; emoji: string; n: number | bigint }>;
+
+  for (const r of reactionRows) {
+    byId.get(Number(r.entry_id))?.reactions.push({
+      emoji: r.emoji,
+      count: Number(r.n),
+      mine: false,
+    });
+  }
+
+  if (ipHash) {
+    const mineReactions = db
+      .prepare(`select entry_id, emoji from reactions where entry_id in (${marks}) and ip_hash = ?`)
+      .all(...ids, ipHash) as Array<{ entry_id: number | bigint; emoji: string }>;
+
+    for (const m of mineReactions) {
+      const found = byId.get(Number(m.entry_id))?.reactions.find((r) => r.emoji === m.emoji);
+      if (found) found.mine = true;
     }
   }
 
@@ -336,6 +376,7 @@ export function removeEntry(id: number): string[] {
 
   db.prepare(`delete from attachments where entry_id in (${marks})`).run(...allIds);
   db.prepare(`delete from likes where entry_id in (${marks})`).run(...allIds);
+  db.prepare(`delete from reactions where entry_id in (${marks})`).run(...allIds);
   db.prepare(`delete from entries where id = ?`).run(id); // 回复靠外键语义手删，见下
 
   if (childIds.length > 0) {
@@ -383,6 +424,35 @@ export function addLike(entryId: number, ipHash: string): boolean {
     .run(entryId, ipHash, new Date().toISOString());
 
   return Number(info.changes) > 0;
+}
+
+// ---------- 表情反应 ----------
+
+/**
+ * 贴 / 取消贴一个表情。
+ * 和点赞不同，这里是可切换的：已经贴过就取消（再点一下收回来）。
+ */
+export function toggleReaction(entryId: number, emoji: string, ipHash: string): boolean {
+  const db = getDb();
+
+  const existing = db
+    .prepare(`select 1 as hit from reactions where entry_id = ? and emoji = ? and ip_hash = ?`)
+    .get(entryId, emoji, ipHash);
+
+  if (existing) {
+    db.prepare(`delete from reactions where entry_id = ? and emoji = ? and ip_hash = ?`).run(
+      entryId,
+      emoji,
+      ipHash
+    );
+    return false;
+  }
+
+  db.prepare(
+    `insert into reactions (entry_id, emoji, ip_hash, created_at) values (?, ?, ?, ?)`
+  ).run(entryId, emoji, ipHash, new Date().toISOString());
+
+  return true;
 }
 
 // ---------- 附件 ----------

@@ -43,6 +43,17 @@ create table if not exists attachments (
   bytes       integer,
   created_at  text not null
 );
+
+-- 表情反应（贴表情）。和点赞一样：同一来源对同一条内容的同一个表情只算一次。
+-- emoji 存的是字符本身，但接口只接受白名单里的值（见 lib/reactions.ts），
+-- 否则任何字符串都会被存下来并渲染到页面上。
+create table if not exists reactions (
+  entry_id    integer not null,
+  emoji       text not null,
+  ip_hash     text not null,
+  created_at  text not null,
+  primary key (entry_id, emoji, ip_hash)
+);
 `;
 
 /**
@@ -55,6 +66,7 @@ create index if not exists idx_entries_feed on entries (status, created_at desc)
 create index if not exists idx_entries_rate on entries (ip_hash, created_at);
 create index if not exists idx_entries_parent on entries (parent_id, created_at);
 create index if not exists idx_attachments_entry on attachments (entry_id);
+create index if not exists idx_reactions_entry on reactions (entry_id);
 `;
 
 function columnNames(db: DatabaseSync, table: string): Set<string> {

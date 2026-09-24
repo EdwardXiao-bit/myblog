@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import EmojiPicker from '../components/EmojiPicker.astro';
-import LikeButton from '../components/LikeButton.astro';
+import ReactionBar from '../components/ReactionBar.astro';
 import ReplyList from '../components/ReplyList.astro';
 import { site } from '../data/site';
 import { LIMITS, hashIp, listFeed, listPending, moderationOn } from '../lib/guestbook';
@@ -159,7 +159,7 @@ const notice = notices[code];
                 </ul>
               )}
 
-              <LikeButton entry={entry} back="/guestbook" />
+              <ReactionBar entry={entry} back="/guestbook" />
 
               <ReplyList replies={entry.replies} back="/guestbook" />
             </li>

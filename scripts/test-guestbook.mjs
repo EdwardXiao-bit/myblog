@@ -588,6 +588,72 @@ section('18. 站主回复（回复本身就是一条记录）');
   check('回复框的表情面板默认收起', adminHtml.includes('data-emoji-panel hidden'));
 }
 
+section('19. 表情反应');
+{
+  const target = db()
+    .prepare("select id from entries where status='published' and parent_id is null order by id limit 1")
+    .get();
+  const id = Number(target.id);
+
+  const react = async (entryId, emoji) =>
+    fetch(BASE + '/api/react', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
+      body: new URLSearchParams({ id: String(entryId), emoji }),
+    });
+
+  const rowsOf = (entryId, emoji) =>
+    count('select count(*) as n from reactions where entry_id = ? and emoji = ?', entryId, emoji);
+
+  const totalBefore = count('select count(*) as n from reactions');
+
+  // 贴一个
+  const first = await react(id, '🎉');
+  const data = await first.json();
+  check('贴表情返回 JSON', first.status === 200 && Array.isArray(data.reactions), JSON.stringify(data).slice(0, 60));
+  check('反应已入库', rowsOf(id, '🎉') === 1);
+
+  const chip = data.reactions.find((r) => r.emoji === '🎉');
+  check('返回里带计数', chip?.count === 1, `count=${chip?.count}`);
+  check('标记为我贴的', chip?.mine === true);
+
+  // 再点一下是取消（和点赞不同，这个可切换）
+  const second = await react(id, '🎉');
+  const data2 = await second.json();
+  check('再点一下取消', rowsOf(id, '🎉') === 0);
+  check('取消后不再出现在列表里', !data2.reactions.some((r) => r.emoji === '🎉'));
+
+  // 白名单：不在名单里的内容一律拒绝
+  await react(id, '<script>alert(1)</script>');
+  await react(id, '随便什么字');
+  check('非白名单内容被拒', count('select count(*) as n from reactions') === totalBefore);
+
+  // 未审核的内容贴不上
+  const pendingRow = db().prepare("select id from entries where status='pending' limit 1").get();
+  if (pendingRow) {
+    await react(Number(pendingRow.id), '🔥');
+    check('未审核的内容贴不上表情', rowsOf(Number(pendingRow.id), '🔥') === 0);
+  }
+
+  // 页面上要能看到 chip 和添加入口
+  await react(id, '🔥');
+  const html = await bodyOf(await get(BASE, '/guestbook'));
+  check('页面上出现表情 chip', html.includes('data-react-chip') && html.includes('🔥'));
+  check('计数显示在 chip 上', /class="n"[^>]*>1</.test(html));
+  check('有添加表情的按钮', html.includes('data-react-add') && html.includes('data-react-bar'));
+
+  // 回复也能贴表情（走的是同一套）
+  const replyRow = db().prepare('select id from entries where kind = ? limit 1').get('reply');
+  if (replyRow) {
+    await react(Number(replyRow.id), '❤️');
+    check('回复也能贴表情', rowsOf(Number(replyRow.id), '❤️') === 1);
+  }
+
+  // 删除内容时，反应要跟着清掉
+  const beforeDelete = count('select count(*) as n from reactions');
+  check('删除前确实有反应', beforeDelete > 0);
+}
+
 // ---------- 汇总 ----------
 console.log(`\n${'='.repeat(46)}`);
 console.log(`通过 ${passed} 项，失败 ${failed} 项`);
