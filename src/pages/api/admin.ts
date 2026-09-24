@@ -24,7 +24,7 @@ function pickFiles(form: FormData): File[] {
     .filter((item): item is File => typeof item === 'object' && 'size' in item && item.size > 0);
 }
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, url }) => {
   // 同源校验：管理动作都靠 cookie 认证，必须挡住跨站提交
   const origin = request.headers.get('origin');
   const host = request.headers.get('host');
@@ -51,6 +51,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       httpOnly: true,
       sameSite: 'lax',
       maxAge: adminCookie.maxAge,
+      // 走 HTTPS 时加上 Secure，防止凭证在明文连接上被带出去。
+      // 本机是 http，这一项为空，不影响开发。
+      secure: url.protocol === 'https:',
     });
     return back('/admin', 'signed-in');
   }

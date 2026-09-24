@@ -20,13 +20,13 @@ const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
   <input type="hidden" name="action" value="reply" />
   <input type="hidden" name="id" value={entry.id} />
 
-  <label class="reply-label" for={fieldId}>追加一条回复</label>
+  <label class="reply-label" for={fieldId}>回复</label>
   <textarea
     id={fieldId}
     name="body"
     rows="2"
     maxlength="1000"
-    placeholder="以站主身份回复……（每次提交都是一条新回复）"></textarea>
+    placeholder="以站主身份回复……"></textarea>
 
   <div class="reply-tools">
     <EmojiPicker target={fieldId} />
@@ -39,7 +39,7 @@ const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
   </div>
 
   <div class="reply-actions">
-    <button type="submit" class="ok">追加回复</button>
+    <button type="submit" class="ok">回复</button>
   </div>
 </form>
 

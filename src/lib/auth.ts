@@ -8,7 +8,9 @@ import { loadEnvOnce } from './env';
  */
 
 const COOKIE_NAME = 'gb_admin';
-const MAX_AGE_SECONDS = 60 * 60 * 12; // 12 小时
+
+/** 登录状态有效期。改这里即可调整「多久要重新输密码」 */
+const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 小时
 
 /** 密码至少要这么长才允许启用管理功能，太短等于没设 */
 const MIN_PASSWORD_LENGTH = 6;
