@@ -48,7 +48,8 @@ const { replies, canManage = false, back } = Astro.props;
             {canManage && (
               <form method="post" action="/api/admin">
                 <input type="hidden" name="action" value="unreply" />
-                <input type="hidden" name="id" value={reply.parentId} />
+                {/* 删的是这一条回复本身，不是父级 */}
+                <input type="hidden" name="id" value={reply.id} />
                 <button type="submit" class="danger" formnovalidate>
                   删除回复
                 </button>

@@ -3,9 +3,12 @@
  * 表情面板：点一下把表情插到指定 textarea 的光标处。
  * 本地实现，没引第三方库。
  *
- * 页面上可以出现多个实例（留言表单一个、每个回复框一个）。
- * 脚本只挂一次，靠 data-wired 标记保证不会重复绑定——
- * 否则同一个面板被绑两次，插一次表情会出现两个。
+ * 布局上有个坑：外层 .emoji 用 display: contents，
+ * 让「按钮」和「面板」直接参与父容器的 flex 布局——
+ * 否则外壳宽度由内容撑开，面板里的 grid 只有一两列宽（曾经就是这样）。
+ * 父容器需要 flex-wrap: wrap，面板靠 flex-basis: 100% 独占一行。
+ *
+ * 页面上可以出现多个实例。脚本只挂一次，靠 data-wired 保证不重复绑定。
  */
 interface Props {
   /** 要插入到哪个 textarea（元素 id） */
@@ -14,11 +17,25 @@ interface Props {
 
 const { target } = Astro.props;
 
+// 按「表情 → 手势 → 心与符号 → 自然 → 吃的 → 玩与物件」排，够日常用
 const emojis = [
-  '😀', '😄', '😁', '😂', '🤣', '😊', '😍', '🤔',
-  '😅', '😭', '😴', '🤯', '😎', '🥹', '🙃', '👍',
-  '👏', '🙏', '💪', '🎉', '🔥', '✨', '❤️', '💚',
-  '🌸', '🌙', '☕', '🍜', '🚲', '🎮', '🎹', '🏊',
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
+  '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩',
+  '😘', '😋', '😛', '😜', '🤪', '🤗', '🤔', '🤨',
+  '😐', '😏', '🙄', '😬', '😌', '😔', '😪', '😴',
+  '🥱', '😷', '🥳', '🥺', '😢', '😭', '😤', '😡',
+  '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😵',
+  '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙',
+  '👈', '👉', '👆', '👇', '✋', '🖐️', '🖖', '👋',
+  '🤝', '🙏', '💪', '✍️', '👏', '🙌', '👐', '🤲',
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+  '💔', '💕', '💗', '💖', '✨', '⭐', '🌟', '💫',
+  '🔥', '💥', '🎉', '🎊', '🎈', '🎁', '🌸', '🌺',
+  '🌻', '🌹', '🌱', '🍀', '🍁', '🌙', '☀️', '🌈',
+  '❄️', '💧', '🌊', '🐟', '🐱', '🐶', '🐼', '🦊',
+  '☕', '🍵', '🍜', '🍚', '🍕', '🍰', '🍦', '🍺',
+  '🚲', '🏊', '🎮', '🎹', '🎸', '🎧', '📷', '📚',
+  '💻', '📱', '🎯', '🏀', '⚽', '🚀', '🛠️', '🧩',
 ];
 ---
 
@@ -31,11 +48,10 @@ const emojis = [
 </div>
 
 <style>
+  /* display: contents 让按钮和面板成为父容器（.editor-bar / .reply-tools）的直接 flex 子项。
+     外壳自己不留盒子，否则它的宽度会被内容撑开，面板里的网格就只有一两列。 */
   .emoji {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: contents;
   }
 
   .tool {
@@ -55,14 +71,19 @@ const emojis = [
   }
 
   .emoji-panel {
-    flex-basis: 100%;
+    /* 独占一整行：父容器有 flex-wrap，100% 的基准宽度会把它挤到下一行 */
+    flex: 1 1 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
-    gap: 4px;
+    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    gap: 2px;
     padding: 10px;
     background: var(--bg-sunken);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+    /* 表情多了要能滚，否则面板会把整页撑得很长 */
+    max-height: 232px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .emoji-panel[hidden] {
@@ -70,9 +91,9 @@ const emojis = [
   }
 
   .emoji-panel button {
-    font-size: 1.125rem;
+    font-size: 1.25rem;
     line-height: 1;
-    padding: 6px 0;
+    padding: 7px 0;
     background: none;
     border: 1px solid transparent;
     border-radius: 6px;

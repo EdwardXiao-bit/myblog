@@ -530,7 +530,7 @@ section('18. 站主回复（回复本身就是一条记录）');
   const upload = new FormData();
   upload.append('action', 'reply');
   upload.append('id', String(id));
-  upload.append('body', REPLY + '（补一张图）');
+  upload.append('body', '第二条回复（带图）');
   upload.append('images', new Blob([png], { type: 'image/png' }), 'reply.png');
 
   const up = await fetch(BASE + '/api/admin', {
@@ -542,14 +542,18 @@ section('18. 站主回复（回复本身就是一条记录）');
   check('回复可以带图', codeOf(up) === 'replied', `m=${codeOf(up)}`);
   check('回复的图片已入库', count('select count(*) as n from attachments') === beforeAtt + 1);
 
-  // 回复只有一条（再次提交是更新，不是新增）
-  check('同一内容只有一条回复', count('select count(*) as n from entries where parent_id = ?', id) === 1);
+  // 关键：再回复一次是**追加**，不是覆盖
+  check('同一内容可以有多条回复', count('select count(*) as n from entries where parent_id = ?', id) === 2);
 
   html = await bodyOf(await get(BASE, '/guestbook'));
+  check('第一条回复仍然显示', html.includes(REPLY));
+  check('第二条回复也显示', html.includes('第二条回复'));
   check('回复的图片出现在公开页', html.includes('/uploads/'));
 
   // 回复也能被点赞
-  const replyRow = replyOf(id);
+  const replyRow = db()
+    .prepare("select * from entries where parent_id = ? and body like '第二条%' limit 1")
+    .get(id);
   const like = await fetch(BASE + '/api/like', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, accept: 'application/json' },
@@ -558,22 +562,30 @@ section('18. 站主回复（回复本身就是一条记录）');
   const likeData = await like.json();
   check('回复可以被点赞', likeData.count === 1, JSON.stringify(likeData));
 
-  // 删除回复：记录和图片文件都要清掉
+  // 删除其中一条回复：只删它自己，另一条要留着，图片文件也要清掉
   const attPath = db().prepare('select path from attachments where entry_id = ?').get(replyRow.id);
   const del = await fetch(BASE + '/api/admin', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded', origin: BASE, cookie: COOKIE },
-    body: new URLSearchParams({ action: 'unreply', id: String(id) }),
+    body: new URLSearchParams({ action: 'unreply', id: String(replyRow.id) }),
     redirect: 'manual',
   });
-  check('可以删除回复', codeOf(del) === 'replied' && !replyOf(id));
+  check('可以删除单条回复', codeOf(del) === 'replied');
+  check('删的是指定那条', !db().prepare('select id from entries where id = ?').get(replyRow.id));
+  check('另一条回复还在', count('select count(*) as n from entries where parent_id = ?', id) === 1);
   check(
-    '回复的图片记录一并删除',
+    '该回复的图片记录一并删除',
     count('select count(*) as n from attachments where entry_id = ?', replyRow.id) === 0
   );
 
   const gone = await fetch(`${BASE}/uploads/${attPath?.path}`);
   check('回复的图片文件也被删掉', gone.status === 404, `status=${gone.status}`);
+
+  // 管理页的回复框也要有表情和配图入口（和留言表单对齐）
+  const adminHtml = await bodyOf(await get(BASE, '/admin', COOKIE));
+  check('回复框有表情面板', adminHtml.includes('data-emoji-picker'));
+  check('回复框有配图输入', adminHtml.includes('name="images"'));
+  check('回复框的表情面板默认收起', adminHtml.includes('data-emoji-panel hidden'));
 }
 
 // ---------- 汇总 ----------

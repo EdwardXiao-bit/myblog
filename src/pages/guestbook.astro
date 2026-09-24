@@ -269,8 +269,10 @@ const notice = notices[code];
     color: var(--accent);
   }
 
+  /* flex-wrap 是给表情面板用的：面板靠 flex-basis:100% 独占第二行 */
   .editor-bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;

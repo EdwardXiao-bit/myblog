@@ -347,42 +347,31 @@ export function removeEntry(id: number): string[] {
 
 // ---------- 回复 ----------
 
-/** 一条内容已有的回复（目前最多一条） */
-export function findReplyOf(parentId: number): Entry | null {
-  const row = getDb()
-    .prepare(`select ${SELECT_COLUMNS} from entries where parent_id = ? order by id limit 1`)
-    .get(parentId);
-  return row ? (hydrate([row])[0] ?? null) : null;
+/** 一条内容已有的回复（按时间正序） */
+export function listRepliesOf(parentId: number, ipHash?: string | null): Entry[] {
+  const rows = getDb()
+    .prepare(`select ${SELECT_COLUMNS} from entries where parent_id = ? order by created_at asc, id asc`)
+    .all(parentId);
+  return hydrate(rows, ipHash, false);
 }
 
-/** 给某条内容写回复；已经回过就更新正文，返回回复的 id */
-export function saveReply(parentId: number, body: string): number {
-  const existing = findReplyOf(parentId);
-  const text = validateReply(body);
-
-  if (existing) {
-    getDb().prepare(`update entries set body = ?, created_at = ? where id = ?`).run(
-      text,
-      new Date().toISOString(),
-      existing.id
-    );
-    return existing.id;
-  }
-
+/**
+ * 给某条内容**追加**一条回复，返回新回复的 id。
+ * 每次提交都是一条新回复（像对话一样可以连着回几条），不是覆盖。
+ */
+export function addReply(parentId: number, body: string): number {
   return createEntry({
     kind: 'reply',
     parentId,
     nickname: null,
-    body: text,
+    body: validateReply(body),
     status: 'published',
   });
 }
 
-/** 删除某条内容的回复，返回附件路径 */
-export function removeReplyOf(parentId: number): string[] {
-  const existing = findReplyOf(parentId);
-  if (!existing) return [];
-  return removeEntry(existing.id);
+/** 删除一条回复，返回它的附件路径 */
+export function removeReply(replyId: number): string[] {
+  return removeEntry(replyId);
 }
 
 // ---------- 点赞 ----------

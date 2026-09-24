@@ -2,11 +2,10 @@ import type { APIRoute } from 'astro';
 import { adminCookie, checkPassword, issueToken, verifyToken } from '../../lib/auth';
 import {
   addAttachment,
+  addReply,
   createEntry,
-  getEntry,
   removeEntry,
-  removeReplyOf,
-  saveReply,
+  removeReply,
   setStatus,
   validateMessage,
   validateReply,
@@ -79,26 +78,21 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return back('/admin', visibility === 'private' ? 'diary-private' : 'diary-public');
   }
 
-  // ---- 回复：和留言一样支持表情与配图 ----
+  // ---- 回复：和留言一样支持表情与配图；每次提交都是追加一条新回复 ----
   if (action === 'reply') {
     const id = Number(form.get('id') ?? 0);
     if (!Number.isInteger(id) || id <= 0) return back('/admin', 'bad-request');
 
-    const parent = getEntry(id);
-    if (!parent) return back('/admin', 'bad-request');
-
     const body = validateReply(form.get('body'));
     const files = pickFiles(form);
-    const existing = parent.replies[0];
-    const existingCount = existing?.attachments.length ?? 0;
 
-    if (existingCount + files.length > MAX_IMAGES_PER_ENTRY) return back('/admin', 'too-many-images');
+    if (files.length > MAX_IMAGES_PER_ENTRY) return back('/admin', 'too-many-images');
     for (const file of files) {
       if (!ALLOWED_MIME.includes(file.type)) return back('/admin', 'bad-image');
       if (file.size > MAX_IMAGE_BYTES) return back('/admin', 'image-too-large');
     }
 
-    if (body.length === 0 && files.length === 0 && existingCount === 0) return back('/admin', 'empty');
+    if (body.length === 0 && files.length === 0) return back('/admin', 'empty');
 
     const stored = [];
     try {
@@ -110,7 +104,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       return back('/admin', 'bad-image');
     }
 
-    const replyId = saveReply(id, body);
+    const replyId = addReply(id, body);
     for (const image of stored) addAttachment(replyId, image);
 
     return back('/admin', 'replied');
@@ -121,7 +115,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     if (!Number.isInteger(id) || id <= 0) return back('/admin', 'bad-request');
 
     // 先拿到附件路径，删完记录再把磁盘文件也清掉，避免留下孤儿图片
-    const paths = removeReplyOf(id);
+    const paths = removeReply(id);
     for (const path of paths) removeImage(path);
 
     return back('/admin', 'replied');
