@@ -28,9 +28,9 @@ if (!alive) {
 }
 
 const cases = [
-  { path: '/', must: ['class="hero"', 'timeline-period', 'class="chips"', 'dataset.theme'] },
-  { path: '/projects', must: ['我的项目', 'project-card'] },
-  { path: '/activities', must: ['我的活动', 'activity-list'] },
+  { path: '/', must: ['class="hero"', 'entry-period', 'class="chips"', 'dataset.theme'] },
+  { path: '/projects', must: ['做过的项目', '<article class="project'] },
+  { path: '/activities', must: ['参加过的活动', 'activity-list'] },
   { path: '/guestbook', must: ['留言板', 'gb-form', 'name="website"'] },
   { path: '/admin', must: ['管理'] },
   { path: '/rss.xml', must: ['<rss', '<language>zh-cn</language>'] },
@@ -84,7 +84,7 @@ try {
 try {
   const projectFiles = readdirSync('src/content/projects').filter((f) => f.endsWith('.md')).length;
   const projectsHtml = await (await fetch(base + '/projects')).text();
-  const cards = (projectsHtml.match(/class="project-card"/g) ?? []).length;
+  const cards = (projectsHtml.match(/<article class="project/g) ?? []).length;
 
   if (cards === projectFiles) {
     console.log(`OK   项目页卡片数 ${cards} 与源文件数一致（内容不是旧的）`);
@@ -99,7 +99,7 @@ try {
     d.isDirectory()
   ).length;
   const activitiesHtml = await (await fetch(base + '/activities')).text();
-  const items = (activitiesHtml.match(/class="activity"/g) ?? []).length;
+  const items = (activitiesHtml.match(/<li class="activity/g) ?? []).length;
 
   if (items === activityDirs) {
     console.log(`OK   活动页条目数 ${items} 与源目录数一致`);
