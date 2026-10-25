@@ -11,19 +11,26 @@ import { z } from 'astro/zod';
 // 项目：一篇 Markdown 一个项目
 const projects = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/projects' }),
-  schema: z.object({
-    title: z.string(),
-    /** 一句话简介，显示在卡片上 */
-    summary: z.string(),
-    /** 项目链接（线上地址或仓库），留空则卡片不可点 */
-    href: z.string().url().optional(),
-    /** 标签，例如 ['TypeScript', 'Web'] */
-    tags: z.array(z.string()).default([]),
-    /** 年份或时间段，仅用于展示 */
-    period: z.string().optional(),
-    /** 排序权重，数字越小越靠前 */
-    order: z.number().default(100),
-  }),
+  schema: ({ image }) =>
+    z.object({
+      title: z.string(),
+      /** 一句话简介，显示在卡片上 */
+      summary: z.string(),
+      /** 项目链接（线上地址或仓库），留空则卡片不可点 */
+      href: z.string().url().optional(),
+      /** 标签，例如 ['TypeScript', 'Web'] */
+      tags: z.array(z.string()).default([]),
+      /** 年份或时间段，仅用于展示 */
+      period: z.string().optional(),
+      /** 作品截图：写 ../../assets/projects/xxx.png（相对于本 md 文件） */
+      cover: image().optional(),
+      /** 截图的替代文本 */
+      coverAlt: z.string().optional(),
+      /** 截图怎么填满卡片：cover 裁切（默认）/ contain 完整展示（适合网页截图） */
+      coverFit: z.enum(['cover', 'contain']).default('cover'),
+      /** 排序权重，数字越小越靠前 */
+      order: z.number().default(100),
+    }),
 });
 
 // 活动：一个活动一个目录，目录里有 index.md 和照片

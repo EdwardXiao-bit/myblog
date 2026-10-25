@@ -31,3 +31,9 @@ backups/
 .DS_Store
 Thumbs.db
 *.log
+
+# 设计评审工具的工作区（截图、报告、原型，别提交）
+.taste-skill/
+
+# impeccable skill 的评审记录（本地工作产物）
+.impeccable/

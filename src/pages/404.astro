@@ -1,0 +1,150 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import homeShot from '../assets/site/home-crop.png';
+import projectsShot from '../assets/site/projects-crop.png';
+import activitiesShot from '../assets/site/activities-crop.png';
+import guestbookShot from '../assets/site/guestbook-crop.png';
+
+const stops = [
+  { href: '/', label: '首页', shot: homeShot },
+  { href: '/projects', label: '项目', shot: projectsShot },
+  { href: '/activities', label: '活动', shot: activitiesShot },
+  { href: '/guestbook', label: '留言板', shot: guestbookShot },
+];
+---
+
+<BaseLayout title={`页面不存在 · ${site.name}`} description="这个地址没有对应页面，站内四个入口都在这里。">
+  <h1 data-reveal>这个地址不存在</h1>
+
+  <div class="body">
+    <div class="copy">
+      <p class="lead" data-reveal>
+        要么链接写错了，要么这页还没写。右边是站里现在的四个地方，点开就是，从哪儿回去都行。
+      </p>
+      <a class="btn" href="/" data-reveal>回首页</a>
+      <p class="hint" data-reveal>
+        找的东西真的丢了？去 <a href="/guestbook">留言板</a> 问一句，我会看到。
+      </p>
+    </div>
+
+    <ul class="map" data-reveal>
+      {
+        stops.map((stop) => (
+          <li data-reveal>
+            <a class="tile" href={stop.href}>
+              <span class="tile-shot">
+                <img
+                  src={stop.shot.src}
+                  width={stop.shot.width}
+                  height={stop.shot.height}
+                  alt={`${stop.label}页首屏`}
+                  loading="lazy"
+                />
+              </span>
+              <span class="tile-cap">{stop.label}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
+
+<style>
+  h1 {
+    margin-top: clamp(32px, 6vw, 72px);
+    font-size: clamp(2.15rem, 0.9rem + 4.6vw, 4.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.038em;
+    text-wrap: balance;
+  }
+
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+    gap: clamp(28px, 5vw, 64px);
+    align-items: start;
+    margin-top: clamp(22px, 3.4vw, 36px);
+  }
+
+  .lead {
+    margin: 0 0 24px;
+    max-width: 24em;
+    font-size: clamp(1.125rem, 0.98rem + 0.5vw, 1.1875rem);
+    line-height: 1.6;
+    color: var(--text-soft);
+  }
+
+  /* 站内地图：四个真实页面截图，点哪张去哪儿 */
+  .map {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tile {
+    display: block;
+  }
+
+  .tile-shot {
+    display: block;
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .tile-shot img {
+    width: 100%;
+    height: auto;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .tile:hover .tile-shot img {
+    transform: scale(1.03);
+  }
+
+  .tile-cap {
+    display: block;
+    margin-top: 8px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .tile:hover .tile-cap {
+    color: var(--accent);
+  }
+
+  .hint {
+    margin-top: clamp(24px, 4vw, 40px);
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .hint a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .hint a:hover {
+    color: var(--accent-hover);
+  }
+
+  @media (max-width: 760px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 28px;
+    }
+
+    .map {
+      order: -1;
+    }
+  }
+</style>

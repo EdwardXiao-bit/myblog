@@ -16,7 +16,9 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
 
 <header class="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href="/">{site.name}</a>
+    <a class="brand" href="/">
+      <span class="brand-path" aria-hidden="true">~/</span>{site.name}
+    </a>
 
     <nav class="nav" aria-label="主导航">
       <ul>
@@ -41,31 +43,30 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     position: sticky;
     top: 0;
     z-index: 50;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-  }
-
-  /* 支持的浏览器上做毛玻璃，不支持的退回纯色 */
-  @supports (backdrop-filter: blur(8px)) {
-    .site-header {
-      background: color-mix(in srgb, var(--bg) 80%, transparent);
-      backdrop-filter: saturate(180%) blur(12px);
-    }
+    background: var(--bg-sunken);
   }
 
   .header-inner {
     min-height: var(--header-h);
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 20px;
   }
 
   .brand {
-    font-weight: 650;
-    font-size: 0.9375rem;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    font-weight: 500;
     color: var(--text);
-    letter-spacing: -0.01em;
     white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-path {
+    color: var(--accent);
   }
 
   .brand:hover {
@@ -79,30 +80,47 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
   .nav ul {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
+  /* 44px 高的整块可点区域，指示线用伪元素画在底部 */
   .nav a {
-    display: block;
-    padding: 5px 10px;
-    border-radius: 7px;
-    font-size: 0.875rem;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 10px;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
     color: var(--text-soft);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .nav a::after {
+    content: '';
+    position: absolute;
+    inset-inline: 10px;
+    bottom: 0;
+    height: 2px;
+    background: transparent;
+    transition: background-color var(--dur-2) var(--ease-out);
   }
 
   .nav a:hover {
-    background: var(--bg-sunken);
     color: var(--text);
   }
 
   .nav a[aria-current='page'] {
-    color: var(--accent);
-    background: var(--accent-soft);
-    font-weight: 550;
+    color: var(--text);
+  }
+
+  .nav a[aria-current='page']::after {
+    background: var(--accent);
   }
 
   @media (max-width: 480px) {
@@ -111,8 +129,12 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     }
 
     .nav a {
-      padding: 5px 7px;
+      padding-inline: 7px;
       font-size: 0.8125rem;
+    }
+
+    .nav a::after {
+      inset-inline: 7px;
     }
   }
 </style>

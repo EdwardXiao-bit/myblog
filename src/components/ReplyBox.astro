@@ -39,41 +39,42 @@ const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
   </div>
 
   <div class="reply-actions">
-    <button type="submit" class="ok">回复</button>
+    <button type="submit" class="btn">回复</button>
   </div>
 </form>
 
 <style>
   .reply-form {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed var(--border);
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line); /* taste-skill-ignore: 表单与留言列表的真实分隔，不是装饰性细线 */
   }
 
   .reply-label {
     display: block;
-    margin-bottom: 6px;
-    font-size: 0.75rem;
-    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--text-soft);
   }
 
   .reply-form textarea {
     width: 100%;
-    padding: 8px 11px;
-    font: inherit;
-    font-size: 0.875rem;
-    line-height: 1.6;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.65;
     color: var(--text);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
     resize: vertical;
+    transition: border-color var(--dur-2) var(--ease-out);
   }
 
   .reply-form textarea:focus {
-    outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   /* flex-wrap 是给表情面板用的：面板靠 flex-basis:100% 独占第二行 */
@@ -82,23 +83,37 @@ const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-top: 8px;
+    gap: 10px 12px;
+    margin-top: 10px;
   }
 
   .counter {
-    font-size: 0.75rem;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 
   .reply-file {
-    margin-top: 10px;
+    margin-top: 14px;
   }
 
   .reply-file input {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
     color: var(--text-soft);
+  }
+
+  .reply-file input::file-selector-button {
+    margin-right: 12px;
+    padding: 7px 12px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    color: var(--text);
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    cursor: pointer;
   }
 
   .reply-actions {
@@ -106,27 +121,7 @@ const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
     /* 提交按钮靠右，和卡片里的其他操作对齐 */
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 10px;
-  }
-
-  .reply-actions button {
-    font: inherit;
-    font-size: 0.8125rem;
-    padding: 5px 14px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-
-  .reply-actions .ok {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .reply-actions .ok:hover {
-    color: #fff;
-    background: var(--accent);
+    margin-top: 14px;
   }
 </style>
 

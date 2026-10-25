@@ -1,115 +1,154 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import { Image } from 'astro:assets';
 
 interface Props {
   project: CollectionEntry<'projects'>;
+  /** 置顶卡：横排，图在左，信息在右 */
+  featured?: boolean;
+  /** 首屏内的图片优先加载 */
+  eager?: boolean;
 }
 
-const { project } = Astro.props;
-const { title, summary, href, tags, period } = project.data;
+const { project, featured = false, eager = false } = Astro.props;
+const { title, summary, href, tags, period, cover, coverAlt, coverFit } = project.data;
+
+const meta = [period, tags.join(' · ')].filter(Boolean).join(' / ');
 ---
 
-<article class="project-card">
-  <div class="card-top">
-    <h3>{title}</h3>
-    {period && <span class="period">{period}</span>}
-  </div>
-
-  <p class="summary">{summary}</p>
-
+<article class:list={['project', { 'is-featured': featured }]} data-reveal>
   {
-    tags.length > 0 && (
-      <ul class="chips">
-        {tags.map((tag) => (
-          <li class="chip">{tag}</li>
-        ))}
-      </ul>
+    cover ? (
+      <div class:list={['shot', { 'shot-contain': coverFit === 'contain' }]} data-reveal>
+        <Image
+          src={cover}
+          alt={coverAlt ?? title}
+          widths={featured ? [480, 720, 960] : [360, 480, 720]}
+          sizes={featured ? '(max-width: 760px) 100vw, 520px' : '(max-width: 760px) 100vw, 460px'}
+          loading={eager ? 'eager' : 'lazy'}
+          data-drift
+        />
+      </div>
+    ) : (
+      <div class="shot shot-empty">
+        <span class="mono">暂无作品截图</span>
+      </div>
     )
   }
 
-  {
-    href && (
-      <>
-        <span class="go" aria-hidden="true">
-          访问<span class="arrow">↗</span>
-        </span>
-        <a class="stretched" href={href} target="_blank" rel="noopener">
-          <span class="sr-only">访问 {title}</span>
+  <div class="body" data-reveal>
+    <h3 class="title">{title}</h3>
+    <p class="meta mono">{meta}</p>
+    <p class="summary">{summary}</p>
+
+    {
+      featured && tags.length > 0 && (
+        <ul class="tags">
+          {tags.map((t) => (
+            <li class="tag mono">{t}</li>
+          ))}
+        </ul>
+      )
+    }
+
+    {
+      href && (
+        <a class="link" href={href} target="_blank" rel="noopener">
+          打开
+          <span class="arrow" aria-hidden="true">↗</span>
+          <span class="sr-only">{title}</span>
         </a>
-      </>
-    )
-  }
+      )
+    }
+  </div>
 </article>
 
 <style>
-  .project-card {
-    position: relative;
+  /* 卡片靠色阶区分，不画线：底层页面的纸色 + 卡片的抬升色 */
+  .project {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 22px;
     background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    color: var(--text);
+  }
+
+  .shot {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 700ms var(--ease-out);
+  }
+
+  /* 网页截图：完整展示，四周留色阶当「纸边」 */
+  .shot-contain {
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: var(--bg-sunken);
+  }
+
+  .shot-contain img {
+    object-fit: contain;
     height: 100%;
   }
 
-  /* 有外链时整张卡片可点，hover 有反馈 */
-  .project-card:has(.stretched):hover {
-    border-color: var(--border-strong);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
+  .project:hover .shot img {
+    transform: scale(1.035);
   }
 
-  .card-top {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
+  .project:hover .title {
+    color: var(--accent);
   }
 
-  .card-top h3 {
-    font-size: 1.0625rem;
+  .shot-empty {
+    display: grid;
+    place-items: center;
+    background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px); /* taste-skill-ignore: 工程纸点阵纹理，用 repeating 点阵画的，不是渐变填充 */
+    background-size: 14px 14px;
   }
 
-  .period {
-    margin-left: auto;
-    flex: none;
-    font-size: 0.75rem;
+  .shot-empty .mono {
     color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
   }
 
-  .summary {
-    font-size: 0.9375rem;
-    color: var(--text-soft);
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 22px 22px 24px;
     flex: 1;
   }
 
-  .go {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+  .title {
+    font-size: 1.25rem;
+    letter-spacing: -0.015em;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .meta {
+    color: var(--text-muted);
     font-size: 0.8125rem;
-    color: var(--accent);
-    font-weight: 550;
   }
 
-  .go .arrow {
-    font-size: 0.8em;
-    opacity: 0.7;
+  .summary {
+    font-size: 1rem;
+    line-height: 1.62;
+    color: var(--text-soft);
+    flex: 1;
+    max-width: 58ch;
   }
 
-  .stretched {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-  }
-
-  /* 键盘用户也能看到焦点框 */
-  .stretched:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
+  .link {
+    align-self: flex-start;
+    margin-top: 6px;
   }
 
   .sr-only {
@@ -122,5 +161,64 @@ const { title, summary, href, tags, period } = project.data;
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* 置顶卡：横排 */
+  .is-featured {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .is-featured .shot {
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 320px;
+  }
+
+  .is-featured .body {
+    justify-content: center;
+    padding: 34px 36px;
+    gap: 10px;
+  }
+
+  .is-featured .title {
+    font-size: 1.5rem;
+  }
+
+  .is-featured .summary {
+    max-width: 40ch;
+    flex: 0;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 2px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tag {
+    padding: 3px 8px;
+    background: var(--bg-sunken);
+    color: var(--text-soft);
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 760px) {
+    .is-featured {
+      grid-template-columns: 1fr;
+    }
+
+    .is-featured .shot {
+      aspect-ratio: 16 / 10;
+      min-height: 0;
+    }
+
+    .is-featured .body {
+      padding: 22px;
+    }
   }
 </style>

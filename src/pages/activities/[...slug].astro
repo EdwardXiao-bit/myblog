@@ -7,14 +7,18 @@ import { site } from '../../data/site';
 import { formatDate } from '../../utils/format';
 
 export async function getStaticPaths() {
-  const activities = await getCollection('activities');
-  return activities.map((activity) => ({
+  const activities = (await getCollection('activities')).sort(
+    (a, b) => b.data.date.getTime() - a.data.date.getTime()
+  );
+
+  return activities.map((activity, i) => ({
     params: { slug: activity.id },
-    props: { activity },
+    // 「上一条」＝ 列表里排在它上面的一条（时间更新的那条）
+    props: { activity, prev: activities[i - 1] ?? null },
   }));
 }
 
-const { activity } = Astro.props;
+const { activity, prev } = Astro.props;
 const { title, date, location, summary, cover, photos, captions } = activity.data;
 const { Content } = await render(activity);
 ---
@@ -26,24 +30,25 @@ const { Content } = await render(activity);
   ogType="article"
 >
   <article class="activity-detail">
-    <a class="back" href="/activities">← 全部活动</a>
-
-    <header>
-      <h1>{title}</h1>
-      <p class="meta">
+    <header class="page-head" data-reveal>
+      <h1 data-reveal>{title}</h1>
+      <p class="meta mono">
         <time datetime={date.toISOString()}>{formatDate(date)}</time>
         {location && <span> · {location}</span>}
       </p>
     </header>
 
+    {summary && <p class="lede" data-reveal>{summary}</p>}
+
     {
       cover && (
-        <div class="cover">
+        <div class="cover notched" data-reveal>
           <Image
             src={cover}
+            data-drift
             alt={title}
             widths={[640, 900, 1400]}
-            sizes="(max-width: 1000px) 100vw, 888px"
+            sizes="(max-width: 1040px) 100vw, 976px"
             loading="eager"
             decoding="async"
           />
@@ -51,49 +56,58 @@ const { Content } = await render(activity);
       )
     }
 
-    {summary && <p class="lede">{summary}</p>}
-
-    <div class="prose">
+    <div class="prose" data-reveal>
       <Content />
     </div>
 
-    {photos.length > 0 && <Gallery photos={photos} captions={captions} alt={title} />}
+    {
+      photos.length > 0 && (
+        <section class="section photos" aria-label="照片" data-reveal>
+          <div class="section-head">
+            <h2>照片</h2>
+            <span class="count">{photos.length}</span>
+          </div>
+          <Gallery photos={photos} captions={captions} alt={title} />
+        </section>
+      )
+    }
+
+    <footer class="detail-foot" data-reveal>
+      {
+        prev ? (
+          <a class="link" href={`/activities/${prev.id}`}>
+            ← 上一条 · {prev.data.title}
+          </a>
+        ) : (
+          <span class="mono muted">已经是最新一条</span>
+        )
+      }
+      <a class="link" href="/activities">
+        全部活动
+        <span class="arrow" aria-hidden="true">↗</span>
+      </a>
+    </footer>
   </article>
 </BaseLayout>
 
 <style>
   .activity-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    padding-block: 40px 0;
-  }
-
-  .back {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    align-self: flex-start;
-  }
-
-  .back:hover {
-    color: var(--accent);
-  }
-
-  header h1 {
-    font-size: clamp(1.5rem, 4.5vw, 1.875rem);
+    padding-block: clamp(40px, 6vw, 72px) 0;
   }
 
   .meta {
-    margin-top: 8px;
-    font-size: 0.875rem;
+    margin-top: 14px;
     color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
+  }
+
+  /* 详情页标题是整句活动名，字号收到 3.5rem 以内，避免中文在词中间折行 */
+  .activity-detail h1 {
+    font-size: clamp(2.25rem, 1.1rem + 3.4vw, 3.5rem);
+    line-height: 1.04;
   }
 
   .cover {
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--border);
+    margin-top: clamp(24px, 4vw, 40px);
     background: var(--bg-sunken);
   }
 
@@ -105,10 +119,34 @@ const { Content } = await render(activity);
     object-fit: cover;
   }
 
+  /* 摘要当引导句：比正文大一号，行宽压在 60ch 内 */
   .lede {
-    font-size: 1.0625rem;
-    color: var(--text-soft);
-    border-left: 2px solid var(--accent);
-    padding-left: 14px;
+    margin-top: clamp(24px, 4vw, 34px);
+    max-width: 60ch;
+    font-size: clamp(1.125rem, 1rem + 0.45vw, 1.3125rem);
+    line-height: 1.55;
+    color: var(--text);
+    text-wrap: balance;
+  }
+
+  .prose {
+    margin-top: clamp(20px, 3vw, 28px);
+    overflow-wrap: break-word;
+  }
+
+  .detail-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px 28px;
+    margin-top: clamp(64px, 9vw, 104px);
+    padding: 20px 22px;
+    background: var(--bg-sunken);
+  }
+
+  .detail-foot .link {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 </style>

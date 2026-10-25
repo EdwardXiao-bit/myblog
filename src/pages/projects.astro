@@ -7,23 +7,27 @@ import { site } from '../data/site';
 const projects = (await getCollection('projects')).sort(
   (a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title, 'zh-CN')
 );
+
+// 本站是唯一能截图给自己看的东西，放到最上面当「代表作」
+const featured = projects.find((p) => p.id === 'personal-site');
+const rest = projects.filter((p) => p !== featured);
 ---
 
 <BaseLayout title={`项目 · ${site.name}`} description={`${site.name} 做过的项目`}>
-  <section class="section">
-    <div class="section-head">
-      <h2>我的项目</h2>
-      {projects.length > 0 && <span class="count">{projects.length}</span>}
-    </div>
+  <header class="page-head">
+    <h1 data-reveal>做过的项目</h1>
+    <p class="lead" data-reveal>
+      {projects.length} 个项目：前三个现在还在用，后面几个是课程作业和比赛作品。每个都写了它解决什么问题、最后做成了什么样。
+    </p>
+  </header>
+
+  <section class="projects" aria-label="项目列表">
+    {featured && <ProjectCard project={featured} featured eager />}
 
     {
-      projects.length === 0 ? (
-        <p class="empty">
-          还没有项目。在 <code>src/content/projects/</code> 里新建一个 <code>.md</code> 文件即可。
-        </p>
-      ) : (
-        <div class="project-grid">
-          {projects.map((project) => (
+      rest.length > 0 && (
+        <div class="grid">
+          {rest.map((project) => (
             <ProjectCard project={project} />
           ))}
         </div>
@@ -33,9 +37,33 @@ const projects = (await getCollection('projects')).sort(
 </BaseLayout>
 
 <style>
-  .project-grid {
+  .page-head {
+    padding-block: clamp(48px, 8vw, 88px) clamp(28px, 4vw, 40px);
+  }
+
+  .lead {
+    margin-top: 14px;
+    max-width: 46ch;
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: var(--text-soft);
+  }
+
+  .projects {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 2.2vw, 22px);
+  }
+
+  .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(16px, 2.2vw, 22px);
+  }
+
+  @media (max-width: 760px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -25,8 +25,8 @@ const { replies, canManage = false, back } = Astro.props;
       {replies.map((reply) => (
         <li class="reply">
           <div class="reply-head">
-            <span class="who">{site.name}</span>
             <time datetime={reply.createdAt}>{formatDateTime(new Date(reply.createdAt))}</time>
+            <span class="who">{site.name}</span>
           </div>
 
           {reply.body && <p class="reply-body">{reply.body}</p>}
@@ -63,51 +63,58 @@ const { replies, canManage = false, back } = Astro.props;
 }
 
 <style>
+  /* 回复缩进一级，用左侧一条实线表示从属关系，分隔仍是横线 */
   .replies {
     display: grid;
-    gap: 10px;
-    margin: 12px 0 0;
-    padding: 0;
+    gap: 0;
+    margin: 18px 0 0;
+    padding: 0 0 0 16px;
     list-style: none;
+    border-left: 2px solid var(--line);
   }
 
   .reply {
-    padding: 12px 14px;
-    border-left: 3px solid var(--accent);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--accent-soft);
+    padding-block: 14px;
+  }
+
+  .reply + .reply {
+    border-top: 1px solid var(--line); /* taste-skill-ignore: 表单与留言列表的真实分隔，不是装饰性细线 */
   }
 
   .reply-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 8px;
-    margin-bottom: 5px;
-    font-size: 0.75rem;
+    gap: 4px 12px;
+    color: var(--text-muted);
+  }
+
+  .reply-head time {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 
   .reply-head .who {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    font-weight: 550;
-    color: var(--accent);
-  }
-
-  .reply-head time {
-    margin-left: auto;
+    color: var(--text-soft);
   }
 
   .reply-body {
-    font-size: 0.9375rem;
+    margin-top: 8px;
+    max-width: 66ch;
+    font-size: 1rem;
     line-height: 1.7;
+    color: var(--text);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .shots {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 200px));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 180px));
     gap: 8px;
     margin: 10px 0 0;
     padding: 0;
@@ -116,29 +123,28 @@ const { replies, canManage = false, back } = Astro.props;
 
   .shots a {
     display: block;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--bg-sunken);
-  }
-
-  .shots a:hover {
-    border-color: var(--accent);
   }
 
   .shots img {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 260px;
+    max-height: 240px;
     object-fit: cover;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .shots a:hover img {
+    transform: scale(1.03);
   }
 
   .reply-foot {
     display: flex;
     align-items: center;
-    /* 点赞、贴表情和「删除回复」一起靠右 */
-    justify-content: flex-end;
+    /* 点赞和「删除回复」一起从左边排 */
+    justify-content: flex-start;
     gap: 10px;
     flex-wrap: wrap;
   }
@@ -149,19 +155,24 @@ const { replies, canManage = false, back } = Astro.props;
   }
 
   .danger {
-    font: inherit;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    padding: 4px 12px;
-    color: #b04a3a;
+    line-height: 1.4;
+    padding: 4px 10px;
+    color: var(--text-muted);
     background: transparent;
-    border: 1px solid rgba(176, 74, 58, 0.5);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
   }
 
   .danger:hover {
-    color: #fff;
-    background: #b04a3a;
-    border-color: #b04a3a;
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: var(--bg-sunken);
   }
 </style>

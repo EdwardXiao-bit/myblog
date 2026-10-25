@@ -67,11 +67,11 @@ const formId = `react-form-${entry.id}`;
   .bar {
     display: flex;
     align-items: center;
-    /* 和卡片里其它操作一样靠右 */
-    justify-content: flex-end;
+    /* 和正文左对齐，和下面的回复共用一条竖轴 */
+    justify-content: flex-start;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 6px 8px;
+    margin-top: 14px;
   }
 
   /* LikeButton 自带的外边距在工具栏里是多余的 */
@@ -87,23 +87,28 @@ const formId = `react-form-${entry.id}`;
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font: inherit;
+    gap: 6px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    padding: 4px 11px;
+    line-height: 1.4;
+    padding: 3px 9px;
     color: var(--text-soft);
     background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 999px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
   }
 
   .chip:hover {
-    border-color: var(--border-strong);
+    border-color: var(--line-strong);
+    background: var(--bg-sunken);
   }
 
   .chip.mine {
+    color: var(--text);
     border-color: var(--accent);
     background: var(--accent-soft);
   }
@@ -128,12 +133,16 @@ const formId = `react-form-${entry.id}`;
     width: 30px;
     height: 28px;
     color: var(--text-muted);
-    border: 1px solid var(--border);
-    border-radius: 999px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
-    font-size: 0.9375rem;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 1rem;
     line-height: 1;
     list-style: none;
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
   }
 
   .add summary::-webkit-details-marker {
@@ -142,7 +151,7 @@ const formId = `react-form-${entry.id}`;
 
   .add summary:hover {
     color: var(--text);
-    border-color: var(--border-strong);
+    border-color: var(--line-strong);
   }
 
   .add[open] summary {
@@ -152,7 +161,7 @@ const formId = `react-form-${entry.id}`;
 
   .panel {
     position: absolute;
-    right: 0;
+    left: 0;
     top: calc(100% + 6px);
     z-index: 20;
     display: grid;
@@ -160,24 +169,23 @@ const formId = `react-form-${entry.id}`;
     gap: 2px;
     padding: 8px;
     background: var(--bg-elev);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
   }
 
   .panel button {
-    font-size: 1.125rem;
+    font-size: 1rem;
     line-height: 1;
     padding: 6px;
     background: none;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
   }
 
   .panel button:hover {
     background: var(--bg-sunken);
-    border-color: var(--border);
+    border-color: var(--line);
   }
 </style>
 

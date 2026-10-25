@@ -31,27 +31,48 @@
   .theme-toggle {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     flex: none;
     padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 9px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
     background: transparent;
     color: var(--text-soft);
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+
+  .theme-toggle:active {
+    transform: scale(0.94);
+  }
+
+  /* 触屏上做到 44px，视觉仍是同一颗方角按钮 */
+  @media (pointer: coarse) {
+    .theme-toggle {
+      width: 44px;
+      height: 44px;
+    }
+
+    .icon {
+      width: 17px;
+      height: 17px;
+    }
   }
 
   .theme-toggle:hover {
     background: var(--bg-sunken);
-    border-color: var(--border-strong);
+    border-color: var(--line-strong);
     color: var(--text);
   }
 
   .icon {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
     grid-area: 1 / 1;
   }
 

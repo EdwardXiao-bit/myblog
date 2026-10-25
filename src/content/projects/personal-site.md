@@ -5,4 +5,7 @@ href: https://github.com/EdwardXiao-bit/myblog
 tags: ['Astro', 'CSS', 'SQLite']
 period: '2026'
 order: 7
+cover: ../../assets/projects/personal-site.png
+coverAlt: 本站首页：名字、代表作和最新活动
+coverFit: contain
 ---

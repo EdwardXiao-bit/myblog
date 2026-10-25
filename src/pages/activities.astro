@@ -11,67 +11,86 @@ const activities = (await getCollection('activities')).sort(
 ---
 
 <BaseLayout title={`活动 · ${site.name}`} description={`${site.name} 参加过的活动`}>
-  <section class="section">
-    <div class="section-head">
-      <h2>我的活动</h2>
-      {activities.length > 0 && <span class="count">{activities.length}</span>}
-    </div>
+  <header class="page-head" data-reveal>
+    <h1 data-reveal>参加过的活动</h1>
+    <p class="lead" data-reveal>
+      {activities.length} 场活动：比赛、开源日、暑期研习。每张照片都留着当时的地点，下面几句备忘是当天写的。
+    </p>
+  </header>
 
-    {
-      activities.length === 0 ? (
-        <p class="empty">
-          还没有活动。在 <code>src/content/activities/</code> 里新建一个目录，
-          放一个 <code>index.md</code> 和照片即可。
-        </p>
-      ) : (
-        <ol class="activity-list">
-          {activities.map((item) => (
-            <li class="activity">
-              <a class="thumb" href={`/activities/${item.id}`} tabindex="-1" aria-hidden="true">
-                {item.data.cover ? (
-                  <Image
-                    src={item.data.cover}
-                    alt=""
-                    widths={[220, 440, 660]}
-                    sizes="(max-width: 560px) 90vw, 176px"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <span class="thumb-empty" />
-                )}
-              </a>
+  {
+    activities.length === 0 ? (
+      <p class="empty">
+        还没有活动。在 <code>src/content/activities/</code> 里新建一个目录，
+        放一个 <code>index.md</code> 和照片即可。
+      </p>
+    ) : (
+      <ol class="activity-list">
+        {activities.map((item, i) => (
+          <li class:list={['activity', { 'is-lead': i === 0 }]} data-reveal>
+            <a
+              class:list={['thumb', 'notched']}
+              data-reveal
+              href={`/activities/${item.id}`}
+              tabindex="-1"
+              aria-hidden="true"
+            >
+              {item.data.cover ? (
+                <Image
+                  src={item.data.cover}
+                  alt=""
+                  widths={[240, 480, 720]}
+                  sizes="(max-width: 640px) 100vw, 240px"
+                  loading="lazy"
+                  decoding="async"
+                  data-drift
+                />
+              ) : (
+                <span class="thumb-empty mono">no photo</span>
+              )}
+            </a>
 
-              <div class="body">
-                <p class="meta">
-                  <time datetime={item.data.date.toISOString()}>{formatDate(item.data.date)}</time>
-                  {item.data.location && <span> · {item.data.location}</span>}
-                </p>
+            <div class="body" data-reveal>
+              <h2 class="title">
+                <a href={`/activities/${item.id}`}>{item.data.title}</a>
+              </h2>
 
-                <h3>
-                  <a href={`/activities/${item.id}`}>{item.data.title}</a>
-                </h3>
+              <p class="meta mono">
+                <time datetime={item.data.date.toISOString()}>{formatDate(item.data.date)}</time>
+                {item.data.location && <span> · {item.data.location}</span>}
+              </p>
 
-                {item.data.summary && <p class="summary">{item.data.summary}</p>}
+              {item.data.summary && <p class="summary">{item.data.summary}</p>}
 
-                <p class="more">
-                  {item.data.photos.length > 0
-                    ? `${item.data.photos.length} 张照片 →`
-                    : '查看详情 →'}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )
-    }
-  </section>
+              <p class="count mono">
+                {item.data.photos.length > 0 ? `${item.data.photos.length} 张照片` : '查看详情'}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    )
+  }
 </BaseLayout>
 
 <style>
+  .page-head {
+    padding-block: clamp(44px, 7vw, 84px) clamp(20px, 3vw, 28px);
+  }
+
+  .lead {
+    margin-top: 14px;
+    max-width: 46ch;
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: var(--text-soft);
+  }
+
+  /* 一行一条，靠留白分隔；第一条用大图立住版面 */
   .activity-list {
-    display: grid;
-    gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.6vw, 16px);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -79,92 +98,121 @@ const activities = (await getCollection('activities')).sort(
 
   .activity {
     display: grid;
-    grid-template-columns: 176px minmax(0, 1fr);
-    gap: 22px;
-    padding: 16px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(18px, 3.4vw, 34px);
+    padding: clamp(16px, 2.2vw, 22px);
+    background: transparent;
+    transition: background-color var(--dur-2) var(--ease-out);
+    position: relative;
+  }
+
+  /* 整行可点：标题链接的伪元素铺满卡片（缩略图链接指向同一地址，不冲突） */
+  .activity .title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .activity:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
   .activity:hover {
-    border-color: var(--border-strong);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
+    background: var(--bg-elev);
+  }
+
+  .activity.is-lead {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: end;
+    padding: clamp(16px, 2.2vw, 22px);
+    background: var(--bg-elev);
+  }
+
+  .activity.is-lead .thumb {
+    aspect-ratio: 16 / 10;
+  }
+
+  .activity.is-lead .title {
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
   }
 
   .thumb {
     display: block;
-    border-radius: var(--radius-sm);
+    overflow: hidden;
+    aspect-ratio: 3 / 2;
     overflow: hidden;
     background: var(--bg-sunken);
-    border: 1px solid var(--border);
   }
 
   .thumb :global(img) {
     width: 100%;
     height: 100%;
-    aspect-ratio: 3 / 2;
     object-fit: cover;
     display: block;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .activity:hover .thumb :global(img) {
+    transform: scale(1.03);
   }
 
   .thumb-empty {
-    display: block;
-    width: 100%;
+    display: grid;
+    place-items: center;
     height: 100%;
-    aspect-ratio: 3 / 2;
-    background: repeating-linear-gradient(
-      45deg,
-      var(--bg-sunken),
-      var(--bg-sunken) 8px,
-      var(--border) 8px,
-      var(--border) 9px
-    );
+    color: var(--text-muted);
+    font-size: 0.8125rem;
   }
 
   .body {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    justify-content: center;
+    align-items: flex-start;
+    gap: 8px;
     min-width: 0;
   }
 
   .meta {
-    font-size: 0.8125rem;
     color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
   }
 
-  .body h3 {
-    font-size: 1.0625rem;
+  .title {
+    font-size: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
   }
 
-  .body h3 a {
+  .title a {
     color: var(--text);
+    transition: color var(--dur-2) var(--ease-out);
   }
 
-  .body h3 a:hover {
+  .title a:hover {
     color: var(--accent);
   }
 
   .summary {
-    font-size: 0.9375rem;
+    max-width: 62ch;
+    font-size: 1rem;
+    line-height: 1.6;
     color: var(--text-soft);
   }
 
-  .more {
-    margin-top: 4px;
+  .count {
+    color: var(--text-muted);
     font-size: 0.8125rem;
-    color: var(--accent);
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .activity {
       grid-template-columns: 1fr;
-      gap: 12px;
+      align-items: start;
+      gap: 14px;
+    }
+
+    .thumb {
+      aspect-ratio: 16 / 9;
     }
   }
 </style>

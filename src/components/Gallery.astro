@@ -17,13 +17,14 @@ const { photos, captions = [], alt = '活动照片' } = Astro.props;
   photos.length > 0 && (
     <ul class="gallery">
       {photos.map((photo, i) => (
-        <li>
+        <li data-reveal>
+          {/* 点开就是原图（和原来一样的逻辑），缩略图统一裁成方形 */}
           <a href={photo.src} target="_blank" rel="noopener" title="查看原图">
             <Image
               src={photo}
               alt={captions[i] ?? `${alt} ${i + 1}`}
               widths={[320, 640, 1280]}
-              sizes="(max-width: 560px) 90vw, 300px"
+              sizes="(max-width: 560px) 45vw, (max-width: 1040px) 22vw, 200px"
               loading="lazy"
               decoding="async"
             />
@@ -36,45 +37,46 @@ const { photos, captions = [], alt = '活动照片' } = Astro.props;
 }
 
 <style>
-  /* 用多列（masonry 效果）而不是等高网格：
-     活动照片横竖混在一起时，等高网格会把竖图裁掉一大截，
-     而 `columns` 让每张图按自己的比例排，谁都不缺。 */
+  /* 方形网格：每张图裁成 1:1，横竖混排时排得像照片墙的格子 */
   .gallery {
-    columns: 240px;
-    column-gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: clamp(10px, 1.6vw, 16px);
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .gallery li {
-    break-inside: avoid;
-    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
   }
 
   .gallery a {
     display: block;
-    border-radius: var(--radius-sm);
+    aspect-ratio: 1;
     overflow: hidden;
-    border: 1px solid var(--border);
     background: var(--bg-sunken);
-    transition: border-color 0.18s ease;
-  }
-
-  .gallery a:hover {
-    border-color: var(--accent);
   }
 
   .gallery :global(img) {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .gallery a:hover :global(img) {
+    transform: scale(1.03);
   }
 
   .gallery-caption {
-    margin-top: 7px;
     font-size: 0.8125rem;
     line-height: 1.5;
-    color: var(--text-muted);
+    color: var(--text-soft);
+    overflow-wrap: anywhere;
   }
 </style>

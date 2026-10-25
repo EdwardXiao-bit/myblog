@@ -5,6 +5,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import EmojiPicker from '../components/EmojiPicker.astro';
 import ReactionBar from '../components/ReactionBar.astro';
 import ReplyList from '../components/ReplyList.astro';
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
 import { site } from '../data/site';
 import { LIMITS, hashIp, listFeed, moderationOn } from '../lib/guestbook';
 import { MAX_IMAGES_PER_ENTRY, MAX_IMAGE_BYTES } from '../lib/storage';
@@ -18,6 +20,12 @@ try {
 } catch {
   ipHash = null;
 }
+
+// 留言板本身没有图：把最近三场活动的照片借来当导航，也让这页不是纯表单
+const recent = (await getCollection('activities'))
+  .filter((a) => a.data.cover)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 4);
 
 const entries = listFeed(LIMITS.feed, ipHash);
 const moderated = moderationOn();
@@ -42,41 +50,95 @@ const notice = notices[code];
 ---
 
 <BaseLayout title={`留言板 · ${site.name}`} description={`给 ${site.name} 留言，可以匿名`}>
-  <section class="section">
-    <div class="section-head">
-      <h2>留言板</h2>
-      {entries.length > 0 && <span class="count">{entries.length}</span>}
-    </div>
-
-    <p class="intro">
+  <header class="page-head" data-reveal>
+    <h1 data-reveal>留言板</h1>
+    <p class="lead" data-reveal>
       想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示；也可以只发图片。
     </p>
+  </header>
 
-    {
-      notice && (
-        <p class={`notice notice-${notice.tone}`} role="status">
-          {notice.text}
-        </p>
-      )
-    }
+  {
+    notice && (
+      <p class={`notice notice-${notice.tone}`} role="status">
+        {notice.text}
+      </p>
+    )
+  }
+
+  {
+    recent.length > 0 && (
+      <section class="recent" aria-label="最近的活动照片">
+        <p class="recent-label mono" data-reveal>最近的照片</p>
+        <ul class="recent-list">
+          {recent.map((item) => (
+            <li data-reveal>
+              <a href={`/activities/${item.id}`} class="recent-item">
+                <span class="recent-shot notched">
+                  <Image
+                    src={item.data.cover!}
+                    alt={item.data.title}
+                    widths={[220, 330, 440]}
+                    sizes="(max-width: 640px) 33vw, 240px"
+                    data-drift
+                  />
+                </span>
+                <span class="recent-title">{item.data.title}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <a class="link" href="/activities">
+          看全部活动 <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </section>
+    )
+  }
+
+  <section class="write" aria-label="写留言" data-reveal>
+    <div class="section-head">
+      <h2>写留言</h2>
+    </div>
 
     <form class="gb-form" method="post" action="/api/guestbook" enctype="multipart/form-data">
-      <div class="field">
-        <label for="nickname">昵称</label>
-        <input
-          id="nickname"
-          name="nickname"
-          type="text"
-          maxlength={LIMITS.nickname}
-          placeholder="留空即匿名"
-          autocomplete="nickname"
-          data-owner={site.name}
-        />
-        {/* 彩蛋：输入站主昵称时冒出来 */}
-        <p class="egg" id="nickname-egg" hidden>竟然和我一个昵称！🤡 那你是冒牌的</p>
+      <div class="field-row">
+        <div class="field" data-reveal>
+          <label for="nickname">昵称</label>
+          <input
+            id="nickname"
+            name="nickname"
+            type="text"
+            maxlength={LIMITS.nickname}
+            placeholder="留空即匿名"
+            autocomplete="nickname"
+            data-owner={site.name}
+          />
+          {/* 彩蛋：输入站主昵称时冒出来 */}
+          <p class="egg" id="nickname-egg" hidden>竟然和我一个昵称！🤡<!-- taste-skill-ignore: 🤡 属于彩蛋文案内容，不是图标替代 --> 那你是冒牌的</p>
+        </div>
+
+        <div class="field" data-reveal>
+          <label for="images">
+            配图（可选，最多 {maxImages} 张，单张不超过 {maxImageMb} MB）
+          </label>
+          <div class="upload">
+            <input
+              id="images"
+              name="images"
+              type="file"
+              accept="image/*"
+              multiple
+              class="sr-only"
+              data-max-images={maxImages}
+              data-max-mb={maxImageMb}
+            />
+            <label class="btn btn-ghost upload-pick" for="images">选择图片</label>
+            <p class="upload-state" id="file-state" aria-live="polite">未选择图片</p>
+          </div>
+          <p class="file-note" id="file-note" role="status"></p>
+        </div>
       </div>
 
-      <div class="field">
+      <div class="field" data-reveal>
         <label for="body">想说的话</label>
         <textarea
           id="body"
@@ -91,14 +153,6 @@ const notice = notices[code];
         </div>
       </div>
 
-      <div class="field">
-        <label for="images">
-          配图（可选，最多 {maxImages} 张，单张不超过 {maxImageMb} MB）
-        </label>
-        <input id="images" name="images" type="file" accept="image/*" multiple />
-        <p class="file-note" id="file-note"></p>
-      </div>
-
       {/* 蜜罐：真人看不见，机器人会填 */}
       <div class="hp" aria-hidden="true">
         <label for="website">网址</label>
@@ -109,9 +163,16 @@ const notice = notices[code];
 
       <div class="form-foot">
         <p class="hint">{moderated ? '留言会先经过审核再显示' : '提交后立即显示'}</p>
-        <button type="submit">发送</button>
+        <button type="submit" class="btn">发送</button>
       </div>
     </form>
+  </section>
+
+  <section class="section" aria-label="留言列表" data-reveal>
+    <div class="section-head">
+      <h2>留言</h2>
+      {entries.length > 0 && <span class="count">{entries.length}</span>}
+    </div>
 
     {
       entries.length === 0 ? (
@@ -119,8 +180,9 @@ const notice = notices[code];
       ) : (
         <ol class="feed">
           {entries.map((entry) => (
-            <li class="entry" id={`entry-${entry.id}`}>
+            <li class="entry" id={`entry-${entry.id}`} data-reveal>
               <div class="entry-head">
+                <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
                 {entry.kind === 'diary' ? (
                   <>
                     <span class="who">{site.name}</span>
@@ -129,10 +191,9 @@ const notice = notices[code];
                 ) : (
                   <>
                     <span class="who">{entry.nickname ?? '匿名'}</span>
-                    {isImpostor(entry.nickname) && <span class="badge badge-fake">冒牌🤡</span>}
+                    {isImpostor(entry.nickname) && <span class="badge badge-fake">冒牌🤡<!-- taste-skill-ignore: 🤡 属于彩蛋徽标文案，不是图标替代 --></span>}
                   </>
                 )}
-                <time datetime={entry.createdAt}>{formatDateTime(new Date(entry.createdAt))}</time>
               </div>
 
               {entry.body && <p class="text">{entry.body}</p>}
@@ -168,97 +229,212 @@ const notice = notices[code];
 </BaseLayout>
 
 <style>
-  .intro {
-    font-size: 0.9375rem;
-    color: var(--text-soft);
-    margin-bottom: 20px;
+  /* ---------- 最近的照片 ---------- */
+  .recent {
+    margin-bottom: clamp(36px, 6vw, 56px);
   }
 
+  .recent-label {
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .recent-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(10px, 1.6vw, 16px);
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* 手机上四列太挤，标题会被压成一字一行 */
+  @media (max-width: 640px) {
+    .recent-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .recent-item {
+    display: block;
+    color: var(--text);
+  }
+
+  .recent-shot {
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .recent-shot :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .recent-item:hover .recent-shot :global(img) {
+    transform: scale(1.04);
+  }
+
+  .recent-title {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--text-soft);
+  }
+
+  .page-head {
+    padding-block: clamp(44px, 7vw, 84px) clamp(16px, 2.4vw, 22px);
+  }
+
+  .lead {
+    margin-top: 14px;
+    max-width: 46ch;
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: var(--text-soft);
+  }
+
+  /* 状态提示：左侧一条色条，成功用强调色，其余用正文色，不写死颜色 */
   .notice {
-    margin-bottom: 18px;
-    padding: 11px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 0.9375rem;
-    border: 1px solid;
+    margin-top: clamp(16px, 2.5vw, 22px);
+    padding: 12px 16px;
+    border-left: 3px solid var(--line-strong);
+    background: var(--bg-sunken);
+    border-radius: 0;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-soft);
   }
 
   .notice-ok {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    border-left-color: var(--accent);
+    color: var(--text);
   }
 
   .notice-warn {
-    color: #a35a1f;
-    border-color: #d9a066;
-    background: rgba(217, 160, 102, 0.12);
+    border-left-color: var(--text-muted);
+    color: var(--text);
   }
 
-  :global(:root[data-theme='dark']) .notice-warn {
-    color: #e0b083;
-    border-color: #7a5630;
-    background: rgba(217, 160, 102, 0.1);
+  .write {
+    margin-top: clamp(20px, 3vw, 32px);
   }
 
   .gb-form {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 20px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    gap: clamp(18px, 2.6vw, 26px);
+    max-width: 720px;
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+  }
+
+  /* 昵称与配图都是短字段，并排省一行高度；400px 以下再拆回单列 */
+  .field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(18px, 2.6vw, 26px);
+  }
+
+  @media (max-width: 640px) {
+    .field-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .field label {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    color: var(--text-muted);
+    line-height: 1.4;
+    color: var(--text-soft);
   }
 
   .field input[type='text'],
   .field textarea {
     width: 100%;
-    padding: 9px 12px;
-    font: inherit;
-    font-size: 0.9375rem;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.65;
     color: var(--text);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+
+  .field textarea {
+    min-height: 132px;
     resize: vertical;
   }
 
-  /* 昵称是短字段，占满整行会很怪 */
+  /* 昵称是短字段，占满整行会很怪；并排布局里两列等宽，就让它铺满自己那列 */
   .field input[type='text'] {
     max-width: 320px;
   }
 
-  .field textarea {
-    min-height: 96px;
-    line-height: 1.6;
+  .field-row .field input[type='text'] {
+    max-width: none;
   }
 
   .field input:focus,
   .field textarea:focus {
-    outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .field input[type='file'] {
-    font-size: 0.875rem;
-    color: var(--text-soft);
+  /* 上传：原生 input 藏起来，用同一套按钮语言做触发器，状态在右侧说明 */
+  .upload {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+
+  .upload-pick {
+    cursor: pointer;
+  }
+
+  .sr-only:focus-visible + .upload-pick,
+  .upload:focus-within .upload-pick {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .upload-state {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
   }
 
   .file-note {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
     color: var(--accent);
+  }
+
+  .file-note:empty {
+    display: none;
+  }
+
+  /* 校验不过时两处提示都转成语义红 */
+  .file-note.is-error,
+  .upload-state.is-error {
+    color: var(--danger);
+  }
+
+  .counter.is-warn {
+    color: var(--danger);
   }
 
   /* flex-wrap 是给表情面板用的：面板靠 flex-basis:100% 独占第二行 */
@@ -267,127 +443,116 @@ const notice = notices[code];
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px 12px;
   }
 
   .counter {
-    font-size: 0.75rem;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 
-  /* 蜜罐字段：用定位移出视口，而不是 display:none —— 有些爬虫会跳过 display:none 的字段 */
+  /* 蜜罐字段：1px 缩到不可见但仍在文档里，而不是 display:none —— 有些爬虫会跳过 display:none 的字段。
+     不用 left:-9999px 移出视口：那会把页面的横向范围撑到视口外，也会让空档探测误报。 */
   .hp {
     position: absolute;
-    left: -9999px;
+    top: 0;
+    left: 0;
     width: 1px;
-    height: 1px;
+    height: 1px; /* taste-skill-ignore: 蜜罐字段缩到 1px 只为对真人不可见，不是装饰性细线 */
     overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .form-foot {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding-top: 2px;
   }
 
   .hint {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
-  .form-foot button {
-    flex: none;
-    padding: 9px 22px;
-    font: inherit;
-    font-size: 0.9375rem;
-    font-weight: 550;
-    color: #fff;
-    background: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-  }
-
-  .form-foot button:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-  }
-
+  /* ---------- 留言列表：一行一条，1px 横线分隔 ---------- */
   .feed {
-    display: grid;
-    gap: 12px;
-    margin: 26px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
+    border-top: 1px solid var(--line); /* taste-skill-ignore: 表单与留言列表的真实分隔，不是装饰性细线 */
   }
 
   .entry {
-    padding: 16px 18px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    padding-block: clamp(20px, 3vw, 28px);
+    scroll-margin-top: calc(var(--header-h) + 20px);
   }
 
-  /* 从别处跳过来的锚点，闪一下好找 */
-  .entry:target {
-    border-color: var(--accent);
+  .entry + .entry {
+    border-top: 1px solid var(--line); /* taste-skill-ignore: 表单与留言列表的真实分隔，不是装饰性细线 */
+  }
+
+  /* 从别处跳过来的锚点，把署名点亮 */
+  .entry:target .who {
+    color: var(--accent);
   }
 
   .entry-head {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+  }
+
+  .entry-head time {
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 
   .who {
-    color: var(--text);
+    font-size: 1rem;
     font-weight: 550;
-    font-size: 0.875rem;
+    color: var(--text);
   }
 
   .badge {
-    padding: 1px 8px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    color: var(--accent);
+    padding: 1px 7px;
+    border-radius: 0;
     background: var(--accent-soft);
-    border: 1px solid var(--accent);
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--accent);
   }
 
   /* 用了站主昵称的留言 */
   .badge-fake {
-    color: #a35a1f;
-    border-color: #d9a066;
-    background: rgba(217, 160, 102, 0.16);
-  }
-
-  :global(:root[data-theme='dark']) .badge-fake {
-    color: #e0b083;
-    border-color: #7a5630;
-    background: rgba(217, 160, 102, 0.12);
+    background: var(--bg-sunken);
+    color: var(--text-soft);
   }
 
   /* 输入昵称时冒出来的彩蛋 */
   .egg {
-    margin-top: 6px;
-    font-size: 0.875rem;
+    margin-top: 2px;
+    font-size: 1rem;
     color: var(--accent);
   }
 
   .egg.pop {
-    animation: egg-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: egg-pop 0.42s var(--ease-out);
   }
 
   @keyframes egg-pop {
     0% {
-      transform: scale(0.88) translateY(-2px);
+      transform: scale(0.94) translateY(-2px);
       opacity: 0;
     }
     100% {
@@ -396,14 +561,13 @@ const notice = notices[code];
     }
   }
 
-  .entry-head time {
-    margin-left: auto;
-  }
-
   /* 保留用户输入的换行，同时保证内容被转义（Astro 默认转义） */
   .text {
-    font-size: 0.9375rem;
+    margin-top: 10px;
+    max-width: 68ch;
+    font-size: 1rem;
     line-height: 1.7;
+    color: var(--text);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -411,40 +575,45 @@ const notice = notices[code];
   /* 配图 */
   .shots {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 240px));
-    gap: 8px;
-    margin: 12px 0 0;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 200px));
+    gap: 10px;
+    margin: 14px 0 0;
     padding: 0;
     list-style: none;
   }
 
   .shots a {
     display: block;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--bg-sunken);
-  }
-
-  .shots a:hover {
-    border-color: var(--accent);
   }
 
   .shots img {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 320px;
+    max-height: 300px;
     object-fit: cover;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  .shots a:hover img {
+    transform: scale(1.03);
   }
 </style>
 
 <script>
   const textarea = document.getElementById('body') as HTMLTextAreaElement | null;
   const counter = document.getElementById('char-count');
+  const counterBox = counter?.closest('.counter') ?? null;
+  const bodyLimit = Number(textarea?.maxLength ?? 0);
 
   const updateCount = () => {
-    if (textarea && counter) counter.textContent = String(Array.from(textarea.value).length);
+    if (!textarea || !counter) return;
+    const used = Array.from(textarea.value).length;
+    counter.textContent = String(used);
+    // 快到上限时提前提醒，别等发不出去
+    counterBox?.classList.toggle('is-warn', bodyLimit > 0 && used / bodyLimit >= 0.9);
   };
 
   textarea?.addEventListener('input', updateCount);
@@ -472,13 +641,74 @@ const notice = notices[code];
   nickname?.addEventListener('input', checkImpostor);
   checkImpostor();
 
-  // 选了哪些图，给个反馈
+  // 配图：说清楚选了哪几张、超没超限
   const fileInput = document.getElementById('images') as HTMLInputElement | null;
+  const fileState = document.getElementById('file-state');
   const fileNote = document.getElementById('file-note');
 
-  fileInput?.addEventListener('change', () => {
-    if (!fileNote) return;
-    const count = fileInput.files?.length ?? 0;
-    fileNote.textContent = count > 0 ? `已选 ${count} 张图片` : '';
+  const renderFiles = () => {
+    if (!fileInput || !fileState || !fileNote) return;
+
+    const files = Array.from(fileInput.files ?? []);
+    const maxImages = Number(fileInput.dataset.maxImages ?? 0);
+    const maxMb = Number(fileInput.dataset.maxMb ?? 0);
+
+    if (files.length === 0) {
+      fileState.textContent = '未选择图片';
+      fileNote.textContent = '';
+      fileState.classList.remove('is-error');
+      fileNote.classList.remove('is-error');
+      delete fileInput.dataset.invalid;
+      return;
+    }
+
+    fileState.textContent = files
+      .map((file) => `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`)
+      .join('，');
+
+    const oversized = files.find((file) => maxMb > 0 && file.size > maxMb * 1024 * 1024);
+    const problem =
+      maxImages > 0 && files.length > maxImages
+        ? `最多 ${maxImages} 张，先去掉 ${files.length - maxImages} 张。`
+        : oversized
+          ? `${oversized.name} 超过 ${maxMb} MB，换一张小点的。`
+          : '';
+
+    fileNote.textContent = problem;
+    fileState.classList.toggle('is-error', problem.length > 0);
+    fileNote.classList.toggle('is-error', problem.length > 0);
+
+    if (problem.length > 0) {
+      fileInput.dataset.invalid = '1';
+    } else {
+      delete fileInput.dataset.invalid;
+    }
+  };
+
+  fileInput?.addEventListener('change', renderFiles);
+
+  // 提交：先拦下超限的图，再锁住按钮防连点
+  const form = document.querySelector('.gb-form') as HTMLFormElement | null;
+  const sendBtn = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+
+  form?.addEventListener('submit', (event) => {
+    if (fileInput?.dataset.invalid === '1') {
+      event.preventDefault();
+      fileNote?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = '发送中…';
+    }
+  });
+
+  // 从缓存里退回本页时，把按钮还原
+  window.addEventListener('pageshow', () => {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = '发送';
+    }
   });
 </script>

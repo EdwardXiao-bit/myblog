@@ -1,369 +1,597 @@
 ---
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
 import { isExternal, normalizeHref } from '../utils/link';
-
-const initial = site.name.trim().slice(0, 1);
-const hasMeta = Boolean(site.location || site.email);
-
-// 配置里写了头像路径、但文件还没放上去时退回名字首字，避免首页出现裂图
-const avatarFile = site.avatar
-  ? join(process.cwd(), 'public', site.avatar.replace(/^\//, ''))
-  : '';
-const hasAvatar = avatarFile.length > 0 && existsSync(avatarFile);
+import stopoverArt from '../assets/projects/stopover-gameplay.png';
 
 const socials = site.socials
   .map((s) => ({ ...s, href: normalizeHref(s.href) }))
   .filter((s) => s.href.length > 0);
+
+// 最新一条活动：首屏下面紧跟它，让「最近在做什么」有实况
+const latest = (await getCollection('activities'))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .at(0);
+
+const fmt = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: 'Asia/Shanghai',
+});
+const latestDate = latest ? fmt.format(latest.data.date).replace(/\//g, '.') : '';
+
+// 首页只露三个有截图的代表作，其余去 /projects 看
+// 只挑横幅类的封面：细长的界面截图塞进 16:10 的框里会糊成一条白带
+const picks = (await getCollection('projects'))
+  .sort((a, b) => a.data.order - b.data.order)
+  .filter((p) => p.data.cover && p.data.cover.width / p.data.cover.height <= 2.4)
+  .slice(0, 3);
+
+const total = (await getCollection('projects')).length;
 ---
 
 <BaseLayout title={`${site.name} · 个人主页`} description={site.description}>
   <section class="hero">
-    <div class="avatar" aria-hidden="true">
-      {hasAvatar ? <img src={site.avatar} alt="" /> : <span>{initial}</span>}
-    </div>
-
-    <div class="hero-text">
+    <div class="hero-copy">
       <h1>{site.name}</h1>
-      <p class="tagline">{site.tagline}</p>
+      <p class="lead">计算机系大三，在成都写工具：把陶瓷碎片拼回三维，也给 DeepSeek Harness 写插件。</p>
 
-      {
-        hasMeta && (
-          <p class="meta">
-            {site.location && <span>{site.location}</span>}
-            {site.location && site.email && <span class="sep">·</span>}
-            {site.email && <a href={`mailto:${site.email}`}>{site.email}</a>}
-          </p>
-        )
-      }
+      <p class="status" data-reveal>
+        <span class="prompt" aria-hidden="true">$</span>
+        <span class="cmd">now</span>
+        <span class="out">{site.status}</span>
+        <span class="caret" aria-hidden="true"></span>
+      </p>
 
-      {
-        (socials.length > 0 || site.contacts.length > 0) && (
-          <ul class="socials">
-            {socials.map((s) => (
-              <li>
-                <a
-                  href={s.href}
-                  target={isExternal(s.href) ? '_blank' : undefined}
-                  rel="me noopener"
-                >
-                  {s.label}
-                  <span class="arrow" aria-hidden="true">↗</span>
-                </a>
-              </li>
-            ))}
-            {site.contacts.map((contact) => (
-              <li>
-                {/* QQ / 微信没有公开主页，只能贴文字。虚线边框提示「这不是链接」 */}
-                <span class="contact" title={`${contact.label}：${contact.value}`}>
-                  <span class="contact-label">{contact.label}</span>
-                  {contact.value}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )
-      }
+      <div class="actions" data-reveal>
+        <a class="btn" href="/projects">看我的项目</a>
+        {
+          socials.map((s) => (
+            <a
+              class="btn btn-ghost"
+              href={s.href}
+              target={isExternal(s.href) ? '_blank' : undefined}
+              rel="me noopener"
+            >
+              {s.label}
+              <span class="arrow" aria-hidden="true">↗</span>
+            </a>
+          ))
+        }
+        <a class="btn btn-ghost" href="/guestbook">留言</a>
+      </div>
+
+      <p class="where mono" data-reveal>
+        {site.location} / 四川大学 · 计算机科学与技术
+      </p>
     </div>
+
+    <figure class="hero-art" data-reveal>
+      <div class="plate notched">
+        <Image
+          src={stopoverArt}
+          alt="Stopover 的游戏画面：像素风的教室，公主站在书架和茶杯之间"
+          widths={[560, 840, 1200]}
+          sizes="(max-width: 900px) 100vw, 560px"
+          loading="eager"
+          data-drift
+        />
+      </div>
+      <figcaption class="mono">
+        <span class="cap-dot" aria-hidden="true">◤</span>
+        Stopover · 2026 夏 · NUS 2D 游戏开发课作品
+      </figcaption>
+    </figure>
   </section>
 
   {
-    site.about.length > 0 && (
-      <section class="section" id="about">
-        <div class="section-head">
-          <h2>关于我</h2>
+    latest && (
+      <a class="latest" href={`/activities/${latest.id}/`} data-reveal>
+        <div class="latest-shot">
+          {latest.data.cover ? (
+            <Image
+              src={latest.data.cover}
+              alt={latest.data.title}
+              widths={[240, 360, 480]}
+              sizes="(max-width: 720px) 100vw, 220px"
+              data-drift
+            />
+          ) : (
+            <span class="latest-blank mono">no photo</span>
+          )}
         </div>
-        <div class="prose">
-          {site.about.map((p) => (
-            <p>{p}</p>
-          ))}
+        <div class="latest-body">
+          <p class="latest-meta mono">
+            {latestDate}
+            {latest.data.location && <span> · {latest.data.location}</span>}
+          </p>
+          <h2 class="latest-title">{latest.data.title}</h2>
+          {latest.data.summary && <p class="latest-summary">{latest.data.summary}</p>}
+          <span class="link">
+            看照片
+            <span class="arrow" aria-hidden="true">↗</span>
+          </span>
         </div>
-      </section>
+      </a>
     )
   }
 
-  {
-    site.experience.length > 0 && (
-      <section class="section" id="experience">
-        <div class="section-head">
-          <h2>经历</h2>
-          <span class="count">{site.experience.length}</span>
-        </div>
-        <ol class="timeline">
-          {site.experience.map((item) => (
-            <li class="timeline-item">
-              <div class="timeline-period">{item.period}</div>
-              <div class="timeline-body">
-                <h3>{item.title}</h3>
-                {item.org && <p class="org">{item.org}</p>}
-                {item.desc && <p class="desc">{item.desc}</p>}
+  <section class="section" id="work">
+    <div class="section-head">
+      <h2>代表作</h2>
+      <span class="count">{total}</span>
+    </div>
+    <ul class="picks">
+      {
+        picks.map((project) => (
+          <li data-reveal>
+            <a class="pick" href="/projects">
+              <div class="pick-shot">
+                <Image
+                  src={project.data.cover!}
+                  alt={project.data.coverAlt ?? project.data.title}
+                  widths={[320, 480, 640]}
+                  sizes="(max-width: 720px) 100vw, 300px"
+                  data-drift
+                />
               </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-    )
-  }
+              <p class="pick-title">{project.data.title}</p>
+              <p class="pick-meta mono">{[project.data.period, project.data.tags.join(' · ')].filter(Boolean).join(' / ')}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <a class="link more" href="/projects">全部项目 <span class="arrow" aria-hidden="true">↗</span></a>
+  </section>
 
-  {
-    site.hobbies.length > 0 && (
-      <section class="section" id="hobbies">
-        <div class="section-head">
-          <h2>兴趣爱好</h2>
-        </div>
-        <ul class="hobbies">
-          {site.hobbies.map((hobby) => (
-            <li class="hobby">
-              <span class="hobby-emoji" aria-hidden="true">
-                {hobby.emoji}
+  <section class="section" id="about">
+    <div class="section-head">
+      <h2>关于我</h2>
+    </div>
+    <div class="about-grid">
+      <div class="prose" data-reveal>
+        {site.about.map((p) => <p>{p}</p>)}
+        <p class="contacts">
+          {
+            site.contacts.map((c) => (
+              <span class="contact mono">
+                {c.label} {c.value}
               </span>
-              <div class="hobby-body">
-                <h3>{hobby.name}</h3>
-                {hobby.note &&
-                  (hobby.href ? (
-                    <p class="hobby-note">
-                      <a href={hobby.href} target="_blank" rel="noopener">
-                        {hobby.note}
-                      </a>
-                    </p>
-                  ) : (
-                    <p class="hobby-note">{hobby.note}</p>
-                  ))}
+            ))
+          }
+        </p>
+      </div>
+      <div class="tools" data-reveal>
+        <p class="tools-label mono">工具箱</p>
+        <ul class="chips">
+          {site.skills.map((s) => <li class="chip">{s}</li>)}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="path">
+    <div class="section-head">
+      <h2>经历</h2>
+      <span class="count">{site.experience.length}</span>
+    </div>
+    <div class="path-grid">
+      <ol class="timeline">
+        {
+          site.experience.map((item) => (
+            <li class="entry" data-reveal>
+              <p class="entry-period mono">{item.period}</p>
+              <div class="entry-body">
+                <h3>{item.title}</h3>
+                {item.org && <p class="entry-org">{item.org}</p>}
+                {item.desc && <p class="entry-desc">{item.desc}</p>}
               </div>
             </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
+          ))
+        }
+      </ol>
 
-  {
-    site.skills.length > 0 && (
-      <section class="section" id="skills">
-        <div class="section-head">
-          <h2>关键词</h2>
-        </div>
-        <ul class="chips">
-          {site.skills.map((s) => (
-            <li class="chip">{s}</li>
-          ))}
+      <div class="hobbies" data-reveal>
+        <p class="tools-label mono">兴趣</p>
+        <ul>
+          {
+            site.hobbies.map((hobby) => (
+              <li class="hobby">
+                <span class="hobby-name">{hobby.name}</span>
+                {hobby.note && <span class="hobby-note mono">{hobby.note}</span>}
+              </li>
+            ))
+          }
         </ul>
-      </section>
-    )
-  }
+      </div>
+    </div>
+  </section>
 </BaseLayout>
 
 <style>
+  /* ---------- 首屏 ---------- */
   .hero {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    padding-block: 56px 8px;
-  }
-
-  .avatar {
     display: grid;
-    place-items: center;
-    width: 76px;
-    height: 76px;
-    border-radius: 50%;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 1.875rem;
-    font-weight: 600;
-    overflow: hidden;
-    user-select: none;
-    border: 1px solid var(--border);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(28px, 4.5vw, 56px);
+    padding-block: clamp(44px, 7vw, 88px) clamp(32px, 5vw, 52px);
   }
 
-  .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .hero h1 {
+    font-size: clamp(2.6rem, 1rem + 5.3vw, 5.25rem);
+    letter-spacing: -0.045em;
   }
 
-  .hero-text h1 {
-    font-size: clamp(1.75rem, 5vw, 2.125rem);
-  }
-
-  .tagline {
-    margin-top: 8px;
-    font-size: 1.0625rem;
+  .lead {
+    margin-top: 22px;
+    max-width: 20em;
+    font-size: clamp(1.125rem, 1rem + 0.45vw, 1.3125rem);
+    line-height: 1.55;
     color: var(--text-soft);
-    max-width: 34em;
+    text-wrap: pretty;
   }
 
-  .meta {
-    margin-top: 12px;
+  .status {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-
-  .meta .sep {
-    color: var(--border-strong);
-  }
-
-  .socials {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 18px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .socials a {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 13px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-elev);
-    font-size: 0.875rem;
-    color: var(--text-soft);
-    transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
-  }
-
-  .socials a:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-    transform: translateY(-1px);
-  }
-
-  .socials .arrow {
-    font-size: 0.75em;
-    opacity: 0.6;
-  }
-
-  /* QQ / 微信：只是文字，不是链接，所以用虚线边框和「不可点」的观感区分开。
-     user-select: all 让它点一下就能整段选中，方便复制。 */
-  .contact {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 13px;
-    border: 1px dashed var(--border-strong);
-    border-radius: 999px;
-    font-size: 0.875rem;
-    color: var(--text-soft);
-    font-variant-numeric: tabular-nums;
-    user-select: all;
-  }
-
-  .contact-label {
+    margin-top: 26px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
-  /* 兴趣爱好 */
-  .hobbies {
+  .status .prompt {
+    color: var(--accent);
+  }
+
+  .status .cmd {
+    color: var(--text);
+    padding: 1px 6px;
+    background: var(--bg-sunken);
+  }
+
+  .status .out {
+    color: var(--text-soft);
+  }
+
+  .where {
+    margin-top: 12px;
+    color: var(--text-muted);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 28px;
+  }
+
+  .btn {
+    padding: 9px 16px;
+  }
+
+  .btn .arrow {
+    font-size: 0.85em;
+    opacity: 0.75;
+  }
+
+  .hero-art {
+    margin: 0;
+  }
+
+  .plate {
+    background: var(--bg-elev);
+    padding: 12px;
+  }
+
+  .plate img {
+    width: 100%;
+    height: auto;
+  }
+
+  .hero-art figcaption {
+    margin-top: 12px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .cap-dot {
+    color: var(--accent);
+    margin-right: 6px;
+  }
+
+  /* ---------- 最新活动 ---------- */
+  .latest {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
-    gap: 14px;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 26px;
+    align-items: center;
+    color: var(--text);
+  }
+
+  .latest:hover {
+    color: var(--text);
+  }
+
+  .latest:hover .latest-title {
+    color: var(--accent);
+  }
+
+  .latest-shot {
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    background: var(--bg-sunken);
+    clip-path: polygon(
+      0 9px,
+      9px 0,
+      calc(100% - 9px) 0,
+      100% 9px,
+      100% calc(100% - 9px),
+      calc(100% - 9px) 100%,
+      9px 100%,
+      0 calc(100% - 9px)
+    );
+  }
+
+  .latest-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 700ms var(--ease-out);
+  }
+
+  .latest:hover .latest-shot img {
+    transform: scale(1.035);
+  }
+
+  .latest-blank {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--text-muted);
+  }
+
+  .latest-meta {
+    color: var(--text-muted);
+  }
+
+  .latest-title {
+    margin-top: 6px;
+    font-size: 1.5rem;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .latest-summary {
+    margin-top: 6px;
+    color: var(--text-soft);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 58ch;
+  }
+
+  .latest .link {
+    margin-top: 12px;
+  }
+
+  /* ---------- 代表作 ---------- */
+  .picks {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(14px, 2vw, 22px);
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .hobby {
+  .pick {
+    display: block;
+    color: var(--text);
+  }
+
+  .pick-shot {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .pick-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 700ms var(--ease-out);
+  }
+
+  .pick:hover .pick-shot img {
+    transform: scale(1.04);
+  }
+
+  .pick-title {
+    margin-top: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .pick-meta {
+    margin-top: 3px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .more {
+    margin-top: 18px;
+  }
+
+  /* ---------- 关于 ---------- */
+  .about-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: clamp(24px, 4.5vw, 64px);
+    align-items: start;
+  }
+
+  .contacts {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 18px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    color: var(--text-muted);
   }
 
-  .hobby-emoji {
-    flex: none;
-    font-size: 1.6rem;
-    line-height: 1;
-    /* emoji 的基线在不同字体下不一致，往上提一点和标题对齐 */
-    margin-top: 1px;
+  .contact {
+    user-select: all;
   }
 
-  .hobby-body h3 {
+  .tools-label {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- 经历 / 兴趣 ---------- */
+  .path-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: clamp(28px, 5vw, 72px);
+    align-items: start;
+  }
+
+  .timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 22px;
+    padding-block: 18px;
+  }
+
+  .entry:first-child {
+    padding-top: 0;
+  }
+
+  .entry-period {
+    color: var(--text-muted);
+    padding-top: 4px;
+  }
+
+  .entry-org {
+    margin-top: 4px;
+    color: var(--text-muted);
     font-size: 1rem;
   }
 
+  .entry-desc {
+    margin-top: 8px;
+    color: var(--text-soft);
+  }
+
+  .hobbies ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* 兴趣：一行一条，账号/尺寸这类备注跟在名字后面，别单独占一行 */
+  .hobby {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    padding-block: 9px;
+  }
+
+  .hobby-name {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
   .hobby-note {
-    margin-top: 5px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .hobby:first-child {
+    padding-top: 0;
+  }
+
+  .hobby-name {
+    font-size: 1rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+  }
+
+  .hobby-note {
     color: var(--text-muted);
     overflow-wrap: anywhere;
   }
 
-  /* 经历时间线 */
-  .timeline {
-    display: grid;
-    gap: 26px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .timeline-item {
-    display: grid;
-    grid-template-columns: 132px minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .timeline-period {
-    padding-top: 2px;
-    font-size: 0.8125rem;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .timeline-body {
-    position: relative;
-    padding-left: 20px;
-    border-left: 1px solid var(--border);
-  }
-
-  .timeline-body::before {
-    content: '';
-    position: absolute;
-    left: -3.5px;
-    top: 9px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--border-strong);
-  }
-
-  .timeline-body h3 {
-    font-size: 1rem;
-  }
-
-  .timeline-body .org {
-    margin-top: 2px;
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-
-  .timeline-body .desc {
-    margin-top: 7px;
-    font-size: 0.9375rem;
-    color: var(--text-soft);
-  }
-
-  @media (max-width: 560px) {
+  @media (max-width: 960px) {
     .hero {
-      padding-block: 36px 4px;
+      grid-template-columns: 1fr;
+      padding-block: 36px 28px;
     }
 
-    .timeline-item {
+    .hero-art {
+      order: 2;
+      max-width: 560px;
+    }
+
+    .picks {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .latest {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .latest-shot {
+      aspect-ratio: 16 / 9;
+    }
+
+    .picks {
+      grid-template-columns: 1fr;
+    }
+
+    .pick {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      column-gap: 14px;
+      align-items: center;
+    }
+
+    .pick-shot {
+      grid-row: span 2;
+    }
+
+    .pick-title {
+      margin-top: 0;
+    }
+
+    .about-grid,
+    .path-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .entry {
       grid-template-columns: 1fr;
       gap: 6px;
+    }
+
+    .entry-period {
+      padding-top: 0;
     }
   }
 </style>

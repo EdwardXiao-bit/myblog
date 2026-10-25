@@ -34,6 +34,9 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
 
+    <meta name="theme-color" content="#e9eae5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121310" media="(prefers-color-scheme: dark)" />
+
     <meta property="og:type" content={ogType} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -48,8 +51,10 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
     <link rel="alternate" type="application/rss+xml" title={`${site.name} · 订阅`} href="/rss.xml" />
 
     <script is:inline>
-      // 首次绘制前套用已保存的主题，避免深色模式下闪白
+      // 首帧前定两件事：① 已保存的主题，避免深色模式闪白；
+      // ② 标记 js 可用，进场动效只在有脚本时才隐藏内容（无脚本时全部直接可见）。
       (function () {
+        document.documentElement.classList.add('js');
         try {
           var t = localStorage.getItem('theme');
           if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
@@ -59,10 +64,34 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
   </head>
 
   <body>
+    <a class="skip" href="#main">跳到正文</a>
     <Header />
-    <main class="wrap">
+    <main id="main" class="wrap">
       <slot />
     </main>
     <Footer />
+
+    <script>
+      import '../scripts/motion';
+    </script>
   </body>
 </html>
+
+<style>
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+  }
+
+  .skip:focus {
+    left: 16px;
+    top: 12px;
+  }
+</style>

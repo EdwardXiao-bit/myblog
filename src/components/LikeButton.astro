@@ -21,43 +21,48 @@ const { entry, back } = Astro.props;
     aria-pressed={entry.likedByMe ? 'true' : 'false'}
     title={entry.likedByMe ? '再点一下取消' : '点个赞'}
   >
-    <span aria-hidden="true">♥</span>
+    <span aria-hidden="true">♥</span><!-- taste-skill-ignore: ♥ 是点赞按钮里的图形符号，不是 emoji 图标替代 -->
     <span class="like-count">{entry.likeCount}</span>
   </button>
 </form>
 
 <style>
-  /* 靠右：留言/回复的正文在左，操作放右侧，视觉上不挤在一堆 */
+  /* 和 ReactionBar 排在同一行时靠左，像终端里的一条操作 */
   .like {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 10px;
+    justify-content: flex-start;
+    margin-top: 14px;
   }
 
   .like button {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font: inherit;
+    gap: 7px;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    padding: 4px 12px;
+    line-height: 1.4;
+    padding: 4px 10px;
     color: var(--text-muted);
     background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 999px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
   }
 
   .like button:hover {
-    color: #c0392b;
-    border-color: #c0392b;
+    color: var(--accent);
+    border-color: var(--line-strong);
+    background: var(--bg-sunken);
   }
 
   .like button.liked {
-    color: #c0392b;
-    border-color: #c0392b;
-    background: rgba(192, 57, 43, 0.08);
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
 
   .like-count {

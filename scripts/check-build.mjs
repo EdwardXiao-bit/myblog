@@ -32,9 +32,9 @@ const html = new Map(pages.map((p) => [p.replace(/\\/g, '/'), readFileSync(p, 'u
 // 只断言「结构」和「板块存在」，不写死具体内容。
 // 之前吃过的亏：断言里写死项目和名字，用户一改内容检查就红，反倒像产品坏了。
 const assertions = [
-  ['dist/client/index.html', ['class="hero"', 'timeline-period', 'class="chips"', 'dataset.theme']],
-  ['dist/client/projects/index.html', ['我的项目', 'project-card']],
-  ['dist/client/activities/index.html', ['我的活动', 'activity-list']],
+  ['dist/client/index.html', ['class="hero"', 'entry-period', 'class="chips"', 'dataset.theme']],
+  ['dist/client/projects/index.html', ['<h1', 'class="project']],
+  ['dist/client/activities/index.html', ['<h1', 'activity-list']],
 ];
 
 console.log('--- 内容断言 ---');
@@ -53,7 +53,7 @@ for (const [page, needles] of assertions) {
 console.log('\n--- 内容集合渲染 ---');
 const countOf = (page, pattern) => (html.get(page)?.match(pattern) ?? []).length;
 
-const projectCount = countOf('dist/client/projects/index.html', /class="project-card"/g);
+const projectCount = countOf('dist/client/projects/index.html', /<article class="project/g);
 if (projectCount > 0) console.log(`OK   项目页渲染了 ${projectCount} 张卡片`);
 else fail('项目页一张卡片都没有（内容集合没被读到？）');
 
@@ -198,7 +198,7 @@ if (chromeBad.length === 0) {
 }
 
 const mainBad = [...html.entries()]
-  .filter(([, body]) => !/<main class="wrap">/.test(body))
+  .filter(([, body]) => !/<main[^>]*class="wrap"/.test(body))
   .map(([page]) => page);
 
 if (mainBad.length === 0) {

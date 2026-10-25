@@ -50,7 +50,7 @@ function safeResolve(relativePath: string): string | null {
 
 function randomName(ext: string): string {
   const now = new Date();
-  const folder = join(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, '0'));
+  const folder = join(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, '0')); // taste-skill-ignore: 时间戳补零，是真实数据格式
   return join(folder, `${randomBytes(9).toString('hex')}${ext}`).split(sep).join('/');
 }
 

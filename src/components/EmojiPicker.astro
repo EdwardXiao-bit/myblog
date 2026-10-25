@@ -19,28 +19,28 @@ const { target } = Astro.props;
 
 // 按「表情 → 手势 → 心与符号 → 自然 → 吃的 → 玩与物件」排，够日常用
 const emojis = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
-  '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩',
-  '😘', '😋', '😛', '😜', '🤪', '🤗', '🤔', '🤨',
-  '😐', '😏', '🙄', '😬', '😌', '😔', '😪', '😴',
-  '🥱', '😷', '🥳', '🥺', '😢', '😭', '😤', '😡',
-  '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😵',
-  '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙',
-  '👈', '👉', '👆', '👇', '✋', '🖐️', '🖖', '👋',
-  '🤝', '🙏', '💪', '✍️', '👏', '🙌', '👐', '🤲',
-  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
-  '💔', '💕', '💗', '💖', '✨', '⭐', '🌟', '💫',
-  '🔥', '💥', '🎉', '🎊', '🎈', '🎁', '🌸', '🌺',
-  '🌻', '🌹', '🌱', '🍀', '🍁', '🌙', '☀️', '🌈',
-  '❄️', '💧', '🌊', '🐟', '🐱', '🐶', '🐼', '🦊',
-  '☕', '🍵', '🍜', '🍚', '🍕', '🍰', '🍦', '🍺',
-  '🚲', '🏊', '🎮', '🎹', '🎸', '🎧', '📷', '📚',
-  '💻', '📱', '🎯', '🏀', '⚽', '🚀', '🛠️', '🧩',
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '😘', '😋', '😛', '😜', '🤪', '🤗', '🤔', '🤨', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '😐', '😏', '🙄', '😬', '😌', '😔', '😪', '😴', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🥱', '😷', '🥳', '🥺', '😢', '😭', '😤', '😡', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😵', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '👈', '👉', '👆', '👇', '✋', '🖐️', '🖖', '👋', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🤝', '🙏', '💪', '✍️', '👏', '🙌', '👐', '🤲', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '💔', '💕', '💗', '💖', '✨', '⭐', '🌟', '💫', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🔥', '💥', '🎉', '🎊', '🎈', '🎁', '🌸', '🌺', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🌻', '🌹', '🌱', '🍀', '🍁', '🌙', '☀️', '🌈', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '❄️', '💧', '🌊', '🐟', '🐱', '🐶', '🐼', '🦊', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '☕', '🍵', '🍜', '🍚', '🍕', '🍰', '🍦', '🍺', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '🚲', '🏊', '🎮', '🎹', '🎸', '🎧', '📷', '📚', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+  '💻', '📱', '🎯', '🏀', '⚽', '🚀', '🛠️', '🧩', // taste-skill-ignore: 表情选择器的真实数据，不是装饰
 ];
 ---
 
 <div class="emoji" data-emoji-picker data-target={target}>
-  <button type="button" class="tool" data-emoji-toggle aria-expanded="false">😊 表情</button>
+  <button type="button" class="tool" data-emoji-toggle aria-expanded="false">表情</button>
 
   <div class="emoji-panel" data-emoji-panel hidden>
     {emojis.map((emoji) => <button type="button" data-emoji={emoji} aria-label={emoji}>{emoji}</button>)}
@@ -55,18 +55,24 @@ const emojis = [
   }
 
   .tool {
-    font: inherit;
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
     font-size: 0.8125rem;
-    padding: 4px 12px;
+    line-height: 1.4;
+    padding: 5px 10px;
     color: var(--text-soft);
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
   }
 
   .tool:hover {
-    border-color: var(--border-strong);
+    border-color: var(--line-strong);
+    background: var(--bg-sunken);
     color: var(--text);
   }
 
@@ -78,8 +84,8 @@ const emojis = [
     gap: 2px;
     padding: 10px;
     background: var(--bg-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
     /* 表情多了要能滚，否则面板会把整页撑得很长 */
     max-height: 232px;
     overflow-y: auto;
@@ -90,19 +96,31 @@ const emojis = [
     display: none;
   }
 
+  /* 触屏上「表情」触发器也要够得着（面板里的 emoji 按钮同理） */
+  @media (pointer: coarse) {
+    .tool {
+      min-height: 44px;
+      padding-inline: 14px;
+    }
+
+    .emoji-panel button {
+      min-height: 44px;
+    }
+  }
+
   .emoji-panel button {
     font-size: 1.25rem;
     line-height: 1;
     padding: 7px 0;
     background: none;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
   }
 
   .emoji-panel button:hover {
     background: var(--bg-elev);
-    border-color: var(--border);
+    border-color: var(--line);
   }
 </style>
 

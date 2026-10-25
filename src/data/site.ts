@@ -35,6 +35,8 @@ export interface SiteConfig {
   name: string;
   /** 一句话签名，显示在名字下面 */
   tagline: string;
+  /** 首屏的状态行：机器说的话，放在 tagline 下面（等宽字体） */
+  status: string;
   /** SEO 描述 */
   description: string;
   /** 头像路径，例如 '/avatar.jpg' 并把图片放进 public/；留空则用名字首字生成 */
@@ -56,7 +58,8 @@ export interface SiteConfig {
 
 export const site: SiteConfig = {
   name: 'EdwardXiao',                                // ← 站点名：浏览器标签、左上角、页脚都用它
-  tagline: '计科生一枚，vibe coding摸鱼中🖐️🐟️',        // ← 改成你的签名
+  tagline: '写工具，也把古陶瓷碎片拼回三维。',          // ← 改成你的签名
+  status: '现在给 DeepSeek Harness 写插件',            // ← 首屏状态行，一句话说正在做什么
   description: 'EdwardXiao 的个人主页：简介、项目、活动与留言板。',
   avatar: '/avatar.jpg',                               // ← 把图片放到 public/avatar.jpg 即可；没有文件时自动用名字首字
   location: '中国 · 成都',                              // ← 改成你的城市
@@ -64,7 +67,7 @@ export const site: SiteConfig = {
 
   socials: [
     { label: 'GitHub', href: 'https://github.com/EdwardXiao-bit' },
-    { label: 'Email', href: '1062355602@qq.com' },
+    { label: 'Email', href: 'mailto:1062355602@qq.com' },
     // { label: 'X', href: 'https://x.com/yourname' },
   ],
 
@@ -81,11 +84,11 @@ export const site: SiteConfig = {
   ],
 
   experience: [
-    // ← 一行一段经历，顺序随意（现在是从高中往下读的时间线）
+    // ← 一行一段经历，时间从近到远
     {
-      period: '2021 — 2024',
-      title: '高中',
-      org: '重庆市第八中学',
+      period: '2026 夏',
+      title: '新加坡国立大学计算机学院暑期研习',
+      org: 'Introduction to 2D Game Development · 结业 A',
     },
     {
       period: '2024 — 现在',
@@ -93,22 +96,22 @@ export const site: SiteConfig = {
       org: '四川大学 · 计算机学院 计算机科学与技术',
     },
     {
-      period: '2026 7月',
-      title: '新加坡国立大学计算机学院暑期研习',
-      org: '研学经历',
+      period: '2021 — 2024',
+      title: '高中',
+      org: '重庆市第八中学',
     },
   ],
 
   // ← 爱好，显示在「经历」下面。Steam / 视频号这类只能写 ID，没有公开链接
   hobbies: [
-    { emoji: '🚲', name: '骑行', note: 'XDS Hero 300' },
-    { emoji: '🎮', name: '游戏', note: 'Steam 好友 ID：1421154588（EdwardDavis）' },
-    { emoji: '🎹', name: '钢琴', note: '微信视频号：EdwardDavisXiao' },
-    { emoji: '🏊‍♀️', name: '游泳', },
-    { emoji: '🎶', name: '听歌', note: '古典，摇滚，爵士，伍佰，...' },
-    { emoji: '🐱🐶', name: '猫猫狗狗' }
+    { emoji: '🚲', name: '骑行', note: 'XDS Hero 300' }, // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+    { emoji: '🎮', name: '游戏', note: 'Steam 好友 ID：1421154588（EdwardDavis）' }, // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+    { emoji: '🎹', name: '钢琴', note: '微信视频号：EdwardDavisXiao' }, // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+    { emoji: '🏊‍♀️', name: '游泳', }, // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+    { emoji: '🎶', name: '听歌', note: '古典，摇滚，爵士，伍佰，...' }, // taste-skill-ignore: 表情选择器的真实数据，不是装饰
+    { emoji: '🐱🐶', name: '猫猫狗狗' } // taste-skill-ignore: 表情选择器的真实数据，不是装饰
   ],
 
   // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
-  skills: ['AI Agent', 'C++', 'Unity', 'Didot', 'JavaScript', 'PyTorch', 'WebGL'],
+  skills: ['AI Agent', 'C++', 'Unity', 'JavaScript', 'PyTorch', 'WebGL', 'Astro'],
 };
