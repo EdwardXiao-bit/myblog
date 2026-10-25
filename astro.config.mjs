@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
-import sitemap from '@astrojs/sitemap';
 
 // 上线前把这里换成你的真实域名，或者设置 SITE_URL 环境变量。
 // 它会影响：canonical 链接、分享卡片、RSS、sitemap、robots.txt。
@@ -14,12 +13,7 @@ export default defineConfig({
   // 只有显式写了 `export const prerender = false` 的页面走服务端渲染。
   adapter: node({ mode: 'standalone' }),
 
-  integrations: [
-    sitemap({
-      // 留言板是服务端渲染的，自动扫描扫不到，手动加进去
-      customPages: [new URL('/guestbook/', SITE_URL).href],
-      // 管理页不对外，不收录
-      filter: (page) => !page.includes('/admin'),
-    }),
-  ],
+  // sitemap 由 src/pages/sitemap.xml.ts 预渲染生成。
+  // 不用 @astrojs/sitemap：它在 build:done 阶段写文件，进不了 standalone 的资产清单，
+  // 线上会被 404（robots.txt 却指着它）。
 });

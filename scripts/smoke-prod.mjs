@@ -82,7 +82,7 @@ console.log(`\n生产冒烟：${BASE}${WRITE ? '（含写链路）' : '（只读
 // ---- 1. 页面与端点 ----
 console.log('\n[1] 页面与端点');
 const pages = ['/', '/projects', '/activities', '/guestbook', '/rss.xml', '/robots.txt',
-               '/sitemap-index.xml', '/og.png'];
+               '/sitemap.xml', '/og.png'];
 for (const p of pages) {
   try {
     const r = await fetch(BASE + p, { redirect: 'manual' });
@@ -125,7 +125,7 @@ if (siteUrl) {
   const origin = new URL(siteUrl).origin;
   const rss = await (await fetch(`${BASE}/rss.xml`)).text();
   ok(rss.includes(origin), 'RSS 里的链接与 canonical 同源');
-  const sm = await (await fetch(`${BASE}/sitemap-index.xml`)).text();
+  const sm = await (await fetch(`${BASE}/sitemap.xml`)).text();
   ok(sm.includes(origin), 'sitemap 里的链接与 canonical 同源');
 }
 const rb = await (await fetch(`${BASE}/robots.txt`)).text();

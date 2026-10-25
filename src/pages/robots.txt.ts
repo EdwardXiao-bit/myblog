@@ -13,7 +13,7 @@ export const GET: APIRoute = ({ site: siteUrl }) => {
     'Disallow: /admin',
     'Disallow: /api/',
     '',
-    `Sitemap: ${absoluteUrl(siteUrl, '/sitemap-index.xml')}`,
+    `Sitemap: ${absoluteUrl(siteUrl, '/sitemap.xml')}`,
     '',
   ].join('\n');
 
