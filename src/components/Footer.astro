@@ -27,6 +27,23 @@ const links = site.socials
       }
       <a href="/rss.xml">RSS</a>
     </nav>
+
+    {
+      (site.icp || site.police) && (
+        <p class="footer-legal">
+          {site.icp && (
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">
+              {site.icp}
+            </a>
+          )}
+          {site.police && (
+            <a href="https://beian.gov.cn/" target="_blank" rel="noopener nofollow">
+              {site.police}
+            </a>
+          )}
+        </p>
+      )
+    }
   </div>
 </footer>
 
@@ -79,6 +96,35 @@ const links = site.socials
 
   .footer-links a:hover {
     color: var(--accent);
+  }
+
+  /* 备案信息：只有在大陆服务器备案后才显示（site.icp / site.police 有值） */
+  .footer-legal {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .footer-legal a {
+    color: var(--text-muted);
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .footer-legal a:hover {
+    color: var(--accent);
+  }
+
+  @media (pointer: coarse) {
+    .footer-legal a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding-inline: 10px;
+      margin-inline: -10px;
+    }
   }
 
   /* 触屏上把页脚链接撑到 44px 高，间距看起来不变 */

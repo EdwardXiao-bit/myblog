@@ -54,6 +54,10 @@ export interface SiteConfig {
   /** 兴趣爱好，显示在「经历」下面 */
   hobbies: Hobby[];
   skills: string[];
+  /** ICP 备案号（大陆服务器才需要），留空则页脚不显示；例如 '京ICP备2026xxxxxx号' */
+  icp?: string;
+  /** 公安联网备案号，留空则不显示；例如 '京公网安备 110105020xxxxx号' */
+  police?: string;
 }
 
 export const site: SiteConfig = {
@@ -114,4 +118,8 @@ export const site: SiteConfig = {
 
   // ← 只列具体用过的技术，不写领域名（那等于替你定方向）
   skills: ['AI Agent', 'C++', 'Unity', 'JavaScript', 'PyTorch', 'WebGL', 'Astro'],
+
+  // 大陆服务器备案通过后填这里，页脚会自动多一行；不备案就留空字符串。
+  icp: '',
+  police: '',
 };
