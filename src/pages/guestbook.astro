@@ -34,8 +34,8 @@ const maxImages = MAX_IMAGES_PER_ENTRY;
 const maxImageMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
 
 const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
-  ok: { tone: 'ok', text: '收到了，谢谢你的留言！' },
-  pending: { tone: 'ok', text: '留言已收到。这个站的留言要站长审核通过后才会公开显示。' },
+  ok: { tone: 'ok', text: '收到，谢谢。' },
+  pending: { tone: 'ok', text: '留言收到了。审核通过后才会公开显示。' },
   rate: { tone: 'warn', text: `提交有点频繁，同一来源一小时最多 ${LIMITS.perHour} 条，稍后再试。` },
   empty: { tone: 'warn', text: '写点什么，或者选一张图片。' },
   'too-long': { tone: 'warn', text: `内容最多 ${LIMITS.body} 字，精简一下再发。` },
@@ -53,7 +53,7 @@ const notice = notices[code];
   <header class="page-head" data-reveal>
     <h1 data-reveal>留言板</h1>
     <p class="lead" data-reveal>
-      想说什么都可以写在这儿。昵称留空就是匿名，填了就会署名显示；也可以只发图片。
+      想说什么都行。昵称留空就是匿名，填了会署名；也可以只发图片。
     </p>
   </header>
 

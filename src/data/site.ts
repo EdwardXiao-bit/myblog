@@ -80,7 +80,7 @@ export const site: SiteConfig = {
   // ↓ 只陈述做过的事，不写「方向 / 兴趣领域」——方向还没定，不替你表态
   about: [
     '四川大学计算机科学与技术专业大三在读，在成都。做过古陶瓷碎片的深度学习复原，也写各种小工具。',
-    '最近在探索 AI Agent，并给 DeepSeek Harness 写插件。',
+    '最近在弄 AI Agent，也给 DeepSeek Harness 写插件。',
   ],
 
   experience: [
