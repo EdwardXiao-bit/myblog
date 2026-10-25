@@ -45,6 +45,15 @@
 
 推荐配置：轻量应用服务器 **2 核 2G / 40G 系统盘**，地域选离你近的（备案归属地按**身份证省份**，不按服务器地域）。
 
+镜像只选「**系统镜像 → Ubuntu 24.04 LTS 64 位**」，没货再退 22.04：
+
+- 支持到 2029，Docker、Caddy 的官方文档都按它写，`deploy-vps.md` 里的命令也全是 Ubuntu 的；
+- **别选**应用镜像（宝塔 / LAMP / Node 预装），预装的 Web 服务器会和 Caddy 抢 80/443，还白占内存；
+- **别选** CentOS 7 / 8（已停止维护）或 Alibaba Cloud Linux、TencentOS（能跑，但出问题时搜到的都是 Ubuntu 的解法）；
+- 架构用默认的 **x86_64**。本项目镜像是多架构的（`Dockerfile` 基于 `node:24-slim`），ARM 实例也能跑，但 2C2G 这档没必要为省几块钱折腾。
+
+进系统第一件事：`sudo timedatectl set-timezone Asia/Shanghai`；1G 内存的机器再补 1G swap（2G 可省）。
+
 ### 1.3 备案服务码 / 授权码
 
 - 阿里云：备案控制台 → 备案服务码 → 从你的实例申请（每个实例最多 5 个，免费）。
