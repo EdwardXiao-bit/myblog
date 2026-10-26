@@ -29,6 +29,10 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 4321
+      # 备份必须落在挂载卷里：不写这行时脚本默认写 /app/backups，
+      # 那是容器内路径，容器一重建备份就没了。
+      BACKUP_DIR: /backups
+      KEEP: ${KEEP:-14}
       # 如实告知应用「我在反向代理后面」，否则限流会把所有人当成同一个人
       TRUST_PROXY: "1"
     volumes:
