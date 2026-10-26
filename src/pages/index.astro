@@ -2,18 +2,22 @@
 import { getCollection } from 'astro:content';
 import { Image } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import CardDeck from '../components/CardDeck.astro';
+import ActivityRail from '../components/ActivityRail.astro';
 import { site } from '../data/site';
 import { isExternal, normalizeHref } from '../utils/link';
 import stopoverArt from '../assets/projects/stopover-gameplay.png';
+import guciArt from '../assets/projects/guci-ui.png';
+import mathegenArt from '../assets/projects/mathegen-ui.png';
 
 const socials = site.socials
   .map((s) => ({ ...s, href: normalizeHref(s.href) }))
   .filter((s) => s.href.length > 0);
 
-// 最新一条活动：首屏下面紧跟它，让「最近在做什么」有实况
-const latest = (await getCollection('activities'))
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-  .at(0);
+// 首屏右侧：四张真实作品/活动图轮播（抽牌式），题注按终端打字机走
+const newest = (await getCollection('activities')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
 
 const fmt = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -21,8 +25,52 @@ const fmt = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
   timeZone: 'Asia/Shanghai',
 });
-const latestDate = latest ? fmt.format(latest.data.date).replace(/\//g, '.') : '';
 
+const dotted = (date: Date) => fmt.format(date).replace(/\//g, '.');
+const award = newest.find((a) => a.id.includes('4c-qingdao'));
+
+const deckItems = [
+  {
+    src: stopoverArt,
+    alt: 'Stopover 的游戏画面：像素风房间，公主站在书架和茶杯之间',
+    caption: 'Stopover · 2026 夏 · NUS 2D 游戏开发课作品',
+    href: '/projects',
+  },
+  {
+    src: guciArt,
+    alt: '古瓷智缮的模型库界面：青花瓷与钧窑瓷器卡片',
+    caption: '古瓷智缮 · 2026 · 4C2026 软件应用与开发赛道 国一',
+    href: '/projects',
+  },
+  {
+    src: mathegenArt,
+    alt: '四则运算练习网站的排版界面',
+    caption: '四则运算练习 · 2026 · 给老师做的随堂练出题工具',
+    href: '/projects',
+  },
+  ...(award
+    ? [
+        {
+          src: award.data.cover!,
+          alt: award.data.coverAlt ?? award.data.title,
+          caption: '中国大学生计算机设计大赛 · 2026.08 · 青岛 国一',
+          href: '/activities/2026-4c-qingdao/',
+        },
+      ]
+    : []),
+];
+
+// 横向栏：最近四场活动
+const recent = newest.slice(0, 4);
+const railItems = recent.map((item) => ({
+  src: item.data.cover,
+  alt: item.data.coverAlt ?? item.data.title,
+  meta:
+    dotted(item.data.date) +
+    (item.data.location ? ' · ' + item.data.location : ''),
+  title: item.data.title,
+  href: '/activities/' + item.id + '/',
+}));
 // 首页只露三个有截图的代表作，其余去 /projects 看
 // 只挑横幅类的封面：细长的界面截图塞进 16:10 的框里会糊成一条白带
 const picks = (await getCollection('projects'))
@@ -68,53 +116,20 @@ const total = (await getCollection('projects')).length;
       </p>
     </div>
 
-    <figure class="hero-art" data-reveal>
-      <div class="plate notched">
-        <Image
-          src={stopoverArt}
-          alt="Stopover 的游戏画面：像素风的教室，公主站在书架和茶杯之间"
-          widths={[560, 840, 1200]}
-          sizes="(max-width: 900px) 100vw, 560px"
-          loading="eager"
-          data-drift
-        />
-      </div>
-      <figcaption class="mono">
-        <span class="cap-dot" aria-hidden="true">◤</span>
-        Stopover · 2026 夏 · NUS 2D 游戏开发课作品
-      </figcaption>
-    </figure>
+    <div class="hero-art" data-reveal>
+      <CardDeck items={deckItems} />
+    </div>
   </section>
 
   {
-    latest && (
-      <a class="latest" href={`/activities/${latest.id}/`} data-reveal>
-        <div class="latest-shot">
-          {latest.data.cover ? (
-            <Image
-              src={latest.data.cover}
-              alt={latest.data.title}
-              widths={[240, 360, 480]}
-              sizes="(max-width: 720px) 100vw, 220px"
-              data-drift
-            />
-          ) : (
-            <span class="latest-blank mono">no photo</span>
-          )}
+    recent.length > 0 && (
+      <section class="section rail-section" aria-labelledby="recent-h">
+        <div class="section-head">
+          <h2 id="recent-h">最近</h2>
+          <span class="count">{recent.length}</span>
         </div>
-        <div class="latest-body">
-          <p class="latest-meta mono">
-            {latestDate}
-            {latest.data.location && <span> · {latest.data.location}</span>}
-          </p>
-          <h2 class="latest-title">{latest.data.title}</h2>
-          {latest.data.summary && <p class="latest-summary">{latest.data.summary}</p>}
-          <span class="link">
-            看照片
-            <span class="arrow" aria-hidden="true">↗</span>
-          </span>
-        </div>
-      </a>
+        <ActivityRail items={railItems} />
+      </section>
     )
   }
 
@@ -212,6 +227,11 @@ const total = (await getCollection('projects')).length;
 </BaseLayout>
 
 <style>
+  /* ---------- 横向活动栏 ---------- */
+  .rail-section {
+    margin-top: clamp(8px, 2vw, 18px);
+  }
+
   /* ---------- 首屏 ---------- */
   .hero {
     display: grid;
@@ -279,114 +299,6 @@ const total = (await getCollection('projects')).length;
   .btn .arrow {
     font-size: 0.85em;
     opacity: 0.75;
-  }
-
-  .hero-art {
-    margin: 0;
-  }
-
-  .plate {
-    background: var(--bg-elev);
-    padding: 12px;
-  }
-
-  .plate img {
-    width: 100%;
-    height: auto;
-  }
-
-  .hero-art figcaption {
-    margin-top: 12px;
-    color: var(--text-muted);
-    font-size: 0.8125rem;
-  }
-
-  .cap-dot {
-    color: var(--accent);
-    margin-right: 6px;
-  }
-
-  /* ---------- 最新活动 ---------- */
-  .latest {
-    display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
-    gap: 26px;
-    align-items: center;
-    color: var(--text);
-  }
-
-  .latest {
-    transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .latest:hover {
-      transform: translateY(-3px);
-    }
-
-    .latest:hover .latest-title {
-      color: var(--accent);
-    }
-
-    .latest:hover .latest-shot img {
-      transform: scale(1.02);
-    }
-
-    .pick:hover .pick-shot img {
-      transform: scale(1.02);
-    }
-  }
-
-  .latest-shot {
-    aspect-ratio: 3 / 2;
-    overflow: hidden;
-    background: var(--bg-sunken);
-    clip-path: polygon(
-      0 9px,
-      9px 0,
-      calc(100% - 9px) 0,
-      100% 9px,
-      100% calc(100% - 9px),
-      calc(100% - 9px) 100%,
-      9px 100%,
-      0 calc(100% - 9px)
-    );
-  }
-
-  .latest-shot img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-
-  .latest-blank {
-    display: grid;
-    place-items: center;
-    height: 100%;
-    color: var(--text-muted);
-  }
-
-  .latest-meta {
-    color: var(--text-muted);
-  }
-
-  .latest-title {
-    margin-top: 6px;
-    font-size: 1.5rem;
-    transition: color var(--dur-2) var(--ease-out);
-  }
-
-  .latest-summary {
-    margin-top: 6px;
-    color: var(--text-soft);
-    font-size: 1rem;
-    line-height: 1.6;
-    max-width: 58ch;
-  }
-
-  .latest .link {
-    margin-top: 12px;
   }
 
   /* ---------- 代表作 ---------- */
@@ -561,15 +473,6 @@ const total = (await getCollection('projects')).length;
   }
 
   @media (max-width: 760px) {
-    .latest {
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-
-    .latest-shot {
-      aspect-ratio: 16 / 9;
-    }
-
     .picks {
       grid-template-columns: 1fr;
     }

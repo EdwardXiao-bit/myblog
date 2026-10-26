@@ -1,0 +1,283 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface RailItem {
+  src?: ImageMetadata;
+  alt: string;
+  meta: string;
+  title: string;
+  href: string;
+}
+
+interface Props {
+  items: RailItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="rail-wrap" data-rail>
+  <ul class="rail">
+    {
+      items.map((item) => (
+        <li class="rail-item" data-rail-item>
+          <a class="rail-link" href={item.href}>
+            <span class="rail-shot">
+              {item.src ? (
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  widths={[320, 480, 640]}
+                  sizes="(max-width: 720px) 78vw, 300px"
+                  loading="lazy"
+                />
+              ) : (
+                <span class="rail-blank mono">no photo</span>
+              )}
+            </span>
+            <span class="rail-meta mono">{item.meta}</span>
+            <span class="rail-title">{item.title}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+
+  <button class="rail-nav prev" type="button" data-rail-prev aria-label="上一张">
+    <span aria-hidden="true">‹</span>
+  </button>
+  <button class="rail-nav next" type="button" data-rail-next aria-label="下一张">
+    <span aria-hidden="true">›</span>
+  </button>
+</div>
+
+<style>
+  .rail-wrap {
+    position: relative;
+  }
+
+  .rail {
+    display: flex;
+    gap: clamp(14px, 2vw, 22px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail-item {
+    flex: 0 0 clamp(280px, 34vw, 380px);
+    scroll-snap-align: start;
+  }
+
+  .rail-link {
+    display: block;
+    color: var(--text);
+  }
+
+  .rail-shot {
+    display: block;
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    background: var(--bg-sunken);
+    clip-path: polygon(
+      0 10px,
+      10px 0,
+      calc(100% - 10px) 0,
+      100% 10px,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      10px 100%,
+      0 calc(100% - 10px)
+    );
+  }
+
+  .rail-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .rail-blank {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--text-muted);
+  }
+
+  .rail-meta {
+    display: block;
+    margin-top: 10px;
+    color: var(--text-muted);
+  }
+
+  .rail-title {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .rail-link:hover .rail-title {
+    color: var(--accent);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .rail-link:hover .rail-shot img {
+      transform: scale(1.03);
+    }
+  }
+
+  .rail-nav {
+    position: absolute;
+    top: calc(50% - 34px);
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: var(--bg-elev);
+    color: var(--text-soft);
+    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
+  }
+
+  .rail-nav.prev {
+    left: 0;
+  }
+
+  .rail-nav.next {
+    right: 0;
+  }
+
+  .rail-nav:hover {
+    color: var(--accent);
+    background: var(--bg-sunken);
+  }
+
+  .rail-nav:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail {
+      scroll-behavior: auto;
+    }
+  }
+</style>
+
+<script>
+  const wrap = document.querySelector<HTMLElement>('[data-rail]');
+
+  if (wrap) {
+    const rail = wrap.querySelector<HTMLElement>('.rail');
+    const items = Array.from(wrap.querySelectorAll<HTMLElement>('[data-rail-item]'));
+    const prev = wrap.querySelector<HTMLButtonElement>('[data-rail-prev]');
+    const next = wrap.querySelector<HTMLButtonElement>('[data-rail-next]');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (rail && items.length > 1) {
+      const STEP = 5200;
+      const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+
+      let timer = 0;
+      let paused = false;
+
+      const maxLeft = () => Math.max(0, rail.scrollWidth - rail.clientWidth);
+      const stepWidth = () => (items[1] ? items[1].offsetLeft - items[0].offsetLeft : items[0].offsetWidth);
+      const atEnd = () => rail.scrollLeft >= maxLeft() - 4;
+
+      const nextCard = () => {
+        const target = atEnd() ? 0 : Math.min(maxLeft(), rail.scrollLeft + stepWidth());
+        rail.scrollTo({ left: target, behavior });
+      };
+
+      const prevCard = () => {
+        const target = rail.scrollLeft <= 4 ? maxLeft() : Math.max(0, rail.scrollLeft - stepWidth());
+        rail.scrollTo({ left: target, behavior });
+      };
+
+      // 完全滚出视口的卡片隐藏起来：屏幕外的内容不必参与渲染，也让页面外框不被溢出的卡片干扰
+      let raf = 0;
+      const syncVisibility = () => {
+        raf = 0;
+        const box = rail.getBoundingClientRect();
+        for (const item of items) {
+          const r = item.getBoundingClientRect();
+          item.style.visibility = r.right > box.left - 1 && r.left < box.right + 1 ? '' : 'hidden';
+        }
+      };
+      const scheduleVisibility = () => {
+        if (raf) return;
+        raf = window.requestAnimationFrame(syncVisibility);
+      };
+
+      syncVisibility();
+      rail.addEventListener('scroll', scheduleVisibility, { passive: true });
+      window.addEventListener('resize', scheduleVisibility);
+
+      const play = () => {
+        if (reduce || paused) return;
+        window.clearInterval(timer);
+        timer = window.setInterval(nextCard, STEP);
+      };
+
+      const stop = () => {
+        window.clearInterval(timer);
+        timer = 0;
+      };
+
+      prev?.addEventListener('click', () => {
+        prevCard();
+        stop();
+        play();
+      });
+      next?.addEventListener('click', () => {
+        nextCard();
+        stop();
+        play();
+      });
+
+      const pause = () => {
+        paused = true;
+        stop();
+      };
+      const resume = () => {
+        paused = false;
+        play();
+      };
+
+      wrap.addEventListener('pointerenter', pause);
+      wrap.addEventListener('pointerleave', resume);
+      wrap.addEventListener('focusin', pause);
+      wrap.addEventListener('focusout', (event) => {
+        if (!wrap.contains(event.relatedTarget as Node | null)) resume();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stop();
+        else play();
+      });
+
+      play();
+    }
+  }
+</script>
