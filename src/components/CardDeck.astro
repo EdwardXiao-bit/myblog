@@ -25,7 +25,7 @@ const { items } = Astro.props;
           href={item.href}
           data-deck-card
           data-caption={item.caption}
-          style={`--depth:${i}`}
+          style={`--depth:${i}; background:${i === 0 ? 'var(--bg-elev)' : 'var(--bg-sunken)'}`}
           tabindex={i === 0 ? 0 : -1}
         >
           <Image
@@ -55,6 +55,8 @@ const { items } = Astro.props;
   .deck {
     position: relative;
     aspect-ratio: 16 / 10;
+    /* 后面的牌会往上错开，给上面留出这段距离，别贴住前一段文字 */
+    margin-top: 14px;
   }
 
   .deck-card {
@@ -64,8 +66,8 @@ const { items } = Astro.props;
     padding: 10px;
     background: var(--bg-elev);
     transform:
-      translateY(calc(var(--depth) * -12px))
-      scale(calc(1 - var(--depth) * 0.05));
+      translateY(calc(var(--depth) * -14px))
+      scale(calc(1 - var(--depth) * 0.012));
     transform-origin: 50% 100%;
     transition:
       transform 460ms cubic-bezier(0.22, 0.61, 0.36, 1),
@@ -212,6 +214,19 @@ const { items } = Astro.props;
       };
 
       timer = window.setTimeout(rotate, CYCLE);
+
+      // 悬停或键盘聚焦时暂停自动抽牌，离开后接着走
+      const hold = () => window.clearTimeout(timer);
+      const release = () => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(rotate, 1500);
+      };
+      deck.addEventListener('pointerenter', hold);
+      deck.addEventListener('pointerleave', release);
+      deck.addEventListener('focusin', hold);
+      deck.addEventListener('focusout', (event) => {
+        if (!deck.contains(event.relatedTarget as Node | null)) release();
+      });
     }
   }
 </script>
