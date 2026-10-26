@@ -39,6 +39,14 @@ set -a; . ./.env; set +a
 case "$SITE_URL" in
   *example.com*) die "SITE_URL 还是占位的 example.com，改成你的真实地址（没域名就先写 http://服务器IP）" ;;
 esac
+case "${SITE_DOMAIN:-}" in
+  *your-domain.com*)
+    die ".env 里 SITE_DOMAIN 还是占位的 your-domain.com —— 没域名就写成空（SITE_DOMAIN=），有域名填真实域名" ;;
+esac
+# 没配域名时站点走 http://IP，SITE_URL 却写 https 会让 canonical/RSS/OG 全是错的链接
+if [ -z "${SITE_DOMAIN:-}" ] && printf '%s' "$SITE_URL" | grep -Eq '^https://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'; then
+  die "还没填 SITE_DOMAIN（说明用 http://IP 访问），SITE_URL 要改成 http://${SITE_URL#https://}"
+fi
 [ -n "${ADMIN_PASSWORD:-}" ] || die ".env 里必须设置 ADMIN_PASSWORD"
 # 只查通用弱口令，不把任何真实密码写进仓库
 case "$ADMIN_PASSWORD" in
