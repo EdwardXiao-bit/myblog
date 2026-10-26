@@ -169,9 +169,9 @@ const { items } = Astro.props;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const captions = cards.map((card) => card.dataset.caption ?? '');
 
-    const FLIGHT = 1120;  // 顶牌从最上面转到牌底的总时长
+    const FLIGHT = 1240;  // 顶牌离开牌堆、再从牌底插回去的总时长
     const FORWARD = 820;  // 下面几张各前进一层
-    const INSIDE = 1100;  // 顶牌淡到看不见之后才降层级，避免露出瞬间跳变
+    const INSIDE = 760;   // 时间轴上「拿开停住」那一刻（0.61），此时整张牌与牌堆零重叠
 
     let order = cards.slice();
     let index = 0;
@@ -215,29 +215,35 @@ const { items } = Astro.props;
         );
       });
 
-      // 顶牌：抬起转出 → 落回牌堆最底下那一层
-      // 三步：抬起来转出去（角度给足）→ 荡到牌堆右侧外缘 → 滑回牌底。
-      // 窄屏按牌宽收缩行程，避免旋出时把页面撑出横向滚动。
-      const narrow = deck.clientWidth < 480;
-      const outX = narrow ? 46 : 92;
-      const outY = narrow ? -28 : -48;
-      const sideX = narrow ? 58 : 124;
-      const sideY = narrow ? 12 : 18;
-      const rotA = narrow ? 34 : 46;
-      const rotB = narrow ? 14 : 20;
+      // 顶牌：整张牌先离开牌堆（飞到牌堆右下方、和牌堆完全不相交），
+      // 再把层级降到牌堆下面，从底下插回去 —— 全程不靠透明度过场。
+      const w = top.offsetWidth;
+      const h = top.offsetHeight;
+      const narrow = w < 480;
+      const outX = narrow ? 40 : 96;
+      const outY = narrow ? -30 : -56;
+      const rotA = narrow ? 34 : 44;
+      const rotB = narrow ? 15 : 18;
+      const awayX = Math.round(w * (narrow ? 0.2 : 0.3));
+      // 离开时略微缩小（像是被拿远），并按缩放后的包围盒算出完全离开牌堆所需的位移
+      const awayScale = narrow ? 0.7 : 0.62;
+      const rad = (rotB * Math.PI) / 180;
+      const awayY = Math.round(h * awayScale * Math.cos(rad) + w * awayScale * Math.sin(rad) + 14);
+      const away = `translate3d(${awayX}px, ${awayY}px, 0) rotate(${rotB}deg) scale(${awayScale})`;
+      const rise = `translate3d(${Math.round(awayX * 0.62)}px, ${Math.round(awayY * 0.34)}px, 0) rotate(${Math.round(rotB * 0.8)}deg) scale(${awayScale + 0.2})`;
       const flight = top.animate(
         [
-          { transform: stack(0), opacity: 1, offset: 0 },
-          { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotA}deg) scale(0.95)`, opacity: 1, offset: 0.34 },
-          { transform: `translate3d(${sideX}px, ${sideY}px, 0) rotate(${rotB}deg) scale(0.925)`, opacity: 1, offset: 0.72 },
-          { transform: `translate3d(${Math.round(sideX * 0.8)}px, -10px, 0) rotate(${Math.round(rotB * 0.7)}deg) scale(0.935)`, opacity: 0.88, offset: 0.9 },
-          { transform: `translate3d(${Math.round(sideX * 0.5)}px, -28px, 0) rotate(${Math.round(rotB * 0.5)}deg) scale(0.942)`, opacity: 0.22, offset: 0.978 },
-          { transform: stack(cards.length - 1), opacity: 0, offset: 1 },
+          { transform: stack(0), easing: 'cubic-bezier(0.18, 0.86, 0.28, 1)', offset: 0 },
+          { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotA}deg) scale(0.95)`, easing: 'cubic-bezier(0.34, 0.02, 0.42, 1)', offset: 0.16 },
+          { transform: away, easing: 'linear', offset: 0.47 },
+          { transform: away, easing: 'cubic-bezier(0.3, 0, 0.4, 1)', offset: 0.61 },
+          { transform: rise, easing: 'cubic-bezier(0.32, 0.86, 0.22, 1)', offset: 0.8 },
+          { transform: stack(cards.length - 1), offset: 1 },
         ],
-        { duration: FLIGHT, easing: 'cubic-bezier(0.3, 0.8, 0.24, 1)', fill: 'forwards' },
+        { duration: FLIGHT, easing: 'linear', fill: 'forwards' },
       );
 
-      // 抬起之后钻到牌底：先把层级放低，再往下插
+      // 这张牌已经完全离开牌堆时才换层，所以遮挡关系的变化看不出来
       window.setTimeout(() => {
         top.style.zIndex = '0';
         rest.forEach((card, i) => {
@@ -251,15 +257,6 @@ const { items } = Astro.props;
         }
         order = rest.concat(top);
         deck.appendChild(top);
-        // 落回牌底后，只在露出来的那一条边上淡回来
-        top.style.opacity = '0';
-        window.requestAnimationFrame(() => {
-          top.style.transition = 'opacity 160ms linear';
-          top.style.opacity = '1';
-          window.setTimeout(() => {
-            top.style.transition = '';
-          }, 220);
-        });
         for (const card of cards) card.style.transition = 'none';
         layout();
         void deck.offsetWidth;
