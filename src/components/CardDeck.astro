@@ -219,25 +219,38 @@ const { items } = Astro.props;
       // 换到牌堆下面之后逆时针旋回、从右边插回牌底。全程不靠透明度。
       const w = top.offsetWidth;
       const h = top.offsetHeight;
-      const narrow = w < 480;
-      const outX = narrow ? 40 : 96;
-      const outY = narrow ? -30 : -56;
-      const awayScale = narrow ? 0.62 : 0.6;
-      const rotLift = narrow ? 32 : 40;   // 顺时针旋出的中段
-      const rotAway = narrow ? 42 : 52;   // 离开牌堆时转到最大角
-      // 按缩放+旋转后的包围盒算位移：让整张牌落在牌堆右边、与牌堆零重叠
+      const deckRect = deck.getBoundingClientRect();
+      const vw = window.innerWidth;
+      // 右侧还剩多少地方放这张牌（决定是“旋到右边”还是“先拿开再插回”）
+      const avail = vw - deckRect.right;
+      const outX = 96;
+      const outY = -56;
+      const rotLift = 40;
+      const rotAway = 52;
       const radAway = (rotAway * Math.PI) / 180;
-      const bboxW = awayScale * (w * Math.cos(radAway) + h * Math.sin(radAway));
-      // 桌面：从右边出去、转满角度；手机屏幕窄，右边没位置，改成从下方离开
-      const awayX = narrow ? Math.round(w * 0.18) : Math.round(Math.max(w * 0.9, w / 2 + bboxW / 2 + 12));
-      const awayY = narrow
-        ? Math.round(h * awayScale * Math.cos((32 * Math.PI) / 180) + w * awayScale * Math.sin((32 * Math.PI) / 180) + 14)
-        : Math.round(h * 0.08);
-      const rotAwayN = narrow ? 32 : rotAway;
-      const away = `translate3d(${awayX}px, ${awayY}px, 0) rotate(${rotAwayN}deg) scale(${awayScale})`;
-      const rise = narrow
-        ? `translate3d(${Math.round(awayX * 0.6)}px, ${Math.round(awayY * 0.4)}px, 0) rotate(16deg) scale(${Math.round((awayScale + 0.24) * 100) / 100})`
-        : `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY + h * 0.1)}px, 0) rotate(26deg) scale(0.8)`;
+      const den = w * Math.cos(radAway) + h * Math.sin(radAway);
+      const down = avail < 140;
+      // 缩放按可用宽度反推：保证整张牌落在牌堆右边、且不出视口
+      const awayScale = down
+        ? 0.62
+        : Math.min(0.5, Math.max(0.3, (avail - 28) / den));
+      const bboxW = awayScale * den;
+      const bboxH = awayScale * (w * Math.sin(radAway) + h * Math.cos(radAway));
+      // transform-origin 在底边中点，旋转后包围盒并不居中：按几何精确算位移
+      const cosA = Math.cos(radAway);
+      const sinA = Math.sin(radAway);
+      const wantedLeft = Math.min(deckRect.right + 14, vw - bboxW - 10);
+      const wantedTop = deckRect.top + (h - bboxH) / 2 + h * 0.04;
+      const awayX = Math.round(
+        wantedLeft - deckRect.left - w / 2 + (awayScale * w * cosA) / 2,
+      );
+      const awayY = down
+        ? Math.round(h * 1.35)
+        : Math.round(wantedTop - deckRect.top - h + awayScale * (h * cosA + (w * sinA) / 2));
+      const away = `translate3d(${awayX}px, ${awayY}px, 0) rotate(${rotAway}deg) scale(${awayScale})`;
+      const rise = down
+        ? `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY + h * 0.1)}px, 0) rotate(20deg) scale(0.72)`
+        : `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY * 0.55)}px, 0) rotate(26deg) scale(${Math.round(Math.max(0.72, awayScale * 1.3) * 100) / 100})`;
       const flight = top.animate(
         [
           { transform: stack(0), easing: 'cubic-bezier(0.2, 0.84, 0.3, 1)', offset: 0 },

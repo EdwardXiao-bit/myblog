@@ -113,6 +113,10 @@ html {
   -webkit-text-size-adjust: 100%;
   scrollbar-gutter: stable;
   overflow-x: clip;   /* 牌堆翻牌时会暂时伸出视口，别让它带出横向滚动 */
+
+body {
+  overflow-x: hidden;  /* 同上：个别浏览器只在 body 上裁才不让 scrollWidth 变大 */
+}
   /* 浏览器自带的滚动条也属于这套纸：细轨 + 纸色底 + 墨绿拇指 */
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
