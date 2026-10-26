@@ -19,6 +19,8 @@ services:
       context: .
       args:
         SITE_URL: ${SITE_URL:?请在 .env 里设置 SITE_URL，例如 https://your-domain.com}
+        # 国内机器可用镜像站的基础镜像覆盖，见 Dockerfile 顶部说明
+        NODE_IMAGE: ${NODE_IMAGE:-node:24-slim}
     image: myblog-app:latest
     restart: unless-stopped
     env_file:

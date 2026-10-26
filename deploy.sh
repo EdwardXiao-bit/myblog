@@ -83,6 +83,7 @@ if [ -n "${BUILDX_BUILDER:-}" ]; then
   echo "  使用 buildx builder: $BUILDX_BUILDER"
   docker buildx build --builder "$BUILDX_BUILDER" --load \
     --build-arg SITE_URL="$SITE_URL" \
+    --build-arg NODE_IMAGE="${NODE_IMAGE:-node:24-slim}" \
     -t myblog-app:latest . || die "docker buildx build 失败，见上面的输出"
 else
   docker compose build

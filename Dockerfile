@@ -1,5 +1,10 @@
+# 国内机器拉不到 Docker Hub 时，可以换成镜像站的基础镜像：
+#   NODE_IMAGE=docker.m.daocloud.io/library/node:24-slim
+# compose 和 deploy.sh 都支持通过 .env 里的 NODE_IMAGE 覆盖。
+ARG NODE_IMAGE=node:24-slim
+
 # 构建阶段
-FROM node:24-slim AS build
+FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 
 # SITE_URL 是构建时变量：canonical、分享卡片、RSS、sitemap 都靠它，
@@ -13,8 +18,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# 运行阶段
-FROM node:24-slim
+# 运行阶段（与构建阶段用同一个基础镜像）
+FROM ${NODE_IMAGE}
 WORKDIR /app
 
 ENV NODE_ENV=production
