@@ -1,0 +1,193 @@
+---
+// 首屏点阵：纸面上的点会被鼠标轻轻挤开，松手后带阻尼回到原位。
+// 只在首屏高度内绘制（滚过去就随内容滑走，不参与长页面的渲染预算）；
+// 没有 JS、减少动效、触屏设备这三种情况都不做交互，减少动效直接静态画一次。
+// 其余页面的点阵仍由 body 的静态背景负责，canvas 用同色底遮掉自己覆盖的那一段，
+// 两段点阵的格点对齐（10 + 22k），所以接缝看不出来。
+---
+
+<canvas class="dotfield" aria-hidden="true"></canvas>
+
+<style>
+  .dotfield {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 100svh;
+    pointer-events: none;
+    background: var(--bg);
+  }
+</style>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>('canvas.dotfield');
+  const ctx = canvas?.getContext('2d');
+  if (canvas && ctx) {
+    const SPACING = 22;
+    const DOT = 1.8;
+    const RADIUS = 140;
+    const SHIFT = 12;
+    const SPRING = 0.18;
+    const DAMPING = 0.78;
+
+    type Dot = { ox: number; oy: number; x: number; y: number; vx: number; vy: number };
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+    let dots: Dot[] = [];
+    let width = 0;
+    let height = 0;
+    let raf = 0;
+    let pointer: { x: number; y: number } | null = null;
+    let scrolling = false;
+    let scrollTimer = 0;
+
+    const ink = () => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue('--grid-dot').trim();
+      return value || 'rgba(24, 30, 16, 0.16)';
+    };
+
+    const build = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = canvas.clientWidth;
+      height = canvas.clientHeight;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cols = Math.floor(width / SPACING) + 1;
+      const rows = Math.floor(height / SPACING) + 1;
+      dots = [];
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          // 与 body 静态点阵同一个格点：背景点阵的中心在 10 + 22k
+          const x = 10 + col * SPACING;
+          const y = 10 + row * SPACING;
+          dots.push({ ox: x, oy: y, x, y, vx: 0, vy: 0 });
+        }
+      }
+    };
+
+    const paint = () => {
+      ctx.fillStyle = ink();
+      for (const dot of dots) ctx.fillRect(dot.ox - DOT / 2, dot.oy - DOT / 2, DOT, DOT);
+    };
+
+    const draw = () => {
+      raf = 0;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = ink();
+
+      const px = pointer?.x ?? 0;
+      const py = pointer?.y ?? 0;
+      let settled = true;
+
+      for (const dot of dots) {
+        let near = false;
+        let tx = dot.ox;
+        let ty = dot.oy;
+
+        if (pointer) {
+          const dx = dot.ox - px;
+          const dy = dot.oy - py;
+          const dist = Math.hypot(dx, dy);
+          if (dist < RADIUS && dist > 0.01) {
+            // 被挤开的点朝远离光标的方向让出最多 12px（22px 网格的一半，正好让开一格）
+            const push = SHIFT * (1 - dist / RADIUS) ** 2;
+            tx = dot.ox + (dx / dist) * push;
+            ty = dot.oy + (dy / dist) * push;
+            near = true;
+          }
+        }
+
+        dot.vx = (dot.vx + (tx - dot.x) * SPRING) * DAMPING;
+        dot.vy = (dot.vy + (ty - dot.y) * SPRING) * DAMPING;
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+
+        if (settled && (Math.abs(dot.vx) > 0.02 || Math.abs(dot.vy) > 0.02)) settled = false;
+
+        ctx.globalAlpha = near ? 0.7 : 1;
+        ctx.fillRect(dot.x - DOT / 2, dot.y - DOT / 2, DOT, DOT);
+      }
+
+      ctx.globalAlpha = 1;
+      if (!settled && !scrolling && !document.hidden) raf = requestAnimationFrame(draw);
+    };
+
+    const request = () => {
+      if (!raf && !scrolling && !document.hidden) raf = requestAnimationFrame(draw);
+    };
+
+    const onPointer = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      const rect = canvas.getBoundingClientRect();
+      pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      request();
+    };
+
+    const onLeave = () => {
+      pointer = null;
+      request();
+    };
+
+    build();
+
+    // 主题切换时点阵的墨色要跟着换：canvas 只在需要时重绘，不跟着 CSS 变。
+    const repaint = () => {
+      if (reduce.matches) paint();
+      else request();
+    };
+    new MutationObserver(repaint).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repaint);
+
+    if (reduce.matches) {
+      paint();
+    } else {
+      window.addEventListener(
+        'scroll',
+        () => {
+          // 滚动期间不重绘：把每一帧的预算留给内容本身，停手后再归位
+          scrolling = true;
+          window.clearTimeout(scrollTimer);
+          scrollTimer = window.setTimeout(() => {
+            scrolling = false;
+            request();
+          }, 140);
+        },
+        { passive: true },
+      );
+
+      window.addEventListener(
+        'resize',
+        () => {
+          build();
+          request();
+        },
+        { passive: true },
+      );
+
+      if (fine.matches) {
+        window.addEventListener('pointermove', onPointer, { passive: true });
+        document.documentElement.addEventListener('pointerleave', onLeave);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        } else {
+          request();
+        }
+      });
+
+      request();
+    }
+  }
+</script>

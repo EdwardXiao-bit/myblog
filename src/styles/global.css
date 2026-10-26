@@ -35,7 +35,7 @@
   --danger: #a8422f;
 
   /* 网格 */
-  --grid-dot: rgb(24 30 16 / 0.10);
+  --grid-dot: rgba(24, 30, 16, 0.34);
 
   /* 尺寸 */
   --maxw: 1040px;
@@ -71,7 +71,7 @@
   --accent: #74c3ab;
   --accent-hover: #95d8c3;
   --accent-soft: rgb(116 195 171 / 0.14);
-  --grid-dot: rgb(236 232 220 / 0.06);
+  --grid-dot: rgba(236, 232, 220, 0.36);
   --danger: #e79a83;
 
   color-scheme: dark;
@@ -92,7 +92,7 @@
     --accent: #74c3ab;
     --accent-hover: #95d8c3;
     --accent-soft: rgb(116 195 171 / 0.14);
-    --grid-dot: rgb(236 232 220 / 0.06);
+    --grid-dot: rgba(236, 232, 220, 0.36);
     --danger: #e79a83;
 
     color-scheme: dark;
@@ -141,7 +141,7 @@ body {
   display: flex;
   flex-direction: column;
   background-color: var(--bg);
-  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px); /* taste-skill-ignore: 工程纸点阵纹理，用 repeating 点阵画的，不是渐变填充 */
+  background-image: radial-gradient(var(--grid-dot) 1.8px, transparent 1.8px); /* taste-skill-ignore: 工程纸点阵纹理，用 repeating 点阵画的，不是渐变填充 */
   background-size: 22px 22px;
   background-position: -1px -1px;
   color: var(--text);
@@ -150,6 +150,11 @@ body {
   line-height: 1.65;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+footer {
+  position: relative;
+  z-index: 1;
 }
 
 h1,
@@ -254,6 +259,8 @@ pre {
    ========================================================================== */
 
 .wrap {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: var(--maxw);
   margin-inline: auto;
