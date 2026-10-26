@@ -538,13 +538,15 @@ html.js .reveal.is-in {
   }
 }
 
-.caret {
+/* 挂在本行文字末尾的伪元素上，走行内基线对齐，不再当 flex 项 */
+.status .out::after {
+  content: '';
   display: inline-block;
   width: 0.5em;
-  height: 1.05em;
-  margin-left: 0.15em;
+  height: 1em;
+  margin-left: 0.2em;
   background: var(--accent);
-  vertical-align: -0.16em;
+  vertical-align: -0.18em;
   animation: caret 1.05s steps(1, end) infinite;
 }
 
@@ -564,7 +566,7 @@ html.js .reveal.is-in {
     transition: none;
   }
 
-  .caret {
+  .status .out::after {
     animation: none;
   }
 
