@@ -35,7 +35,7 @@ const { replies, canManage = false, back } = Astro.props;
             <ul class="shots">
               {reply.attachments.map((image) => (
                 <li>
-                  <a href={`/uploads/${image.path}`} target="_blank" rel="noopener" title="查看原图">
+                  <a href={`/uploads/${image.path}`} target="_blank" rel="noopener" title="查看原图" data-tilt>
                     <img src={`/uploads/${image.path}`} alt="回复配图" loading="lazy" decoding="async" />
                   </a>
                 </li>

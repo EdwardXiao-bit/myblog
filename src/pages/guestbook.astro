@@ -72,7 +72,7 @@ const notice = notices[code];
         <ul class="recent-list">
           {recent.map((item) => (
             <li data-reveal>
-              <a href={`/activities/${item.id}`} class="recent-item">
+              <a href={`/activities/${item.id}`} class="recent-item" data-tilt>
                 <span class="recent-shot notched">
                   <Image
                     src={item.data.cover!}
@@ -285,6 +285,10 @@ const notice = notices[code];
     font-size: 0.8125rem;
     line-height: 1.45;
     color: var(--text-soft);
+  }
+
+  .recent-item:hover .recent-title {
+    color: var(--accent);
   }
 
   .page-head {
