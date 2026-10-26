@@ -97,6 +97,72 @@ if (drifts.length > 0 && !reduceMotion) {
   queue();
 }
 
+// 卡片立体倾斜：鼠标在卡片里的位置决定 rotateX / rotateY，附一点抬升和放大。
+// 只在有真实指针的设备上跑；减少动态偏好直接跳过（悬停仍有底色、标题变色和图上缩放）。
+if (!reduceMotion && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+  const TILT = 5.5; // 最大倾角，度
+  const LIFT = 4; // 抬升，px
+  const SCALE = 1.02;
+
+  const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-tilt]"));
+  let active: HTMLElement | null = null;
+  let activeRect: DOMRect | null = null;
+
+  const clear = (el: HTMLElement) => {
+    el.style.transition = "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)";
+    el.style.transform = "";
+  };
+
+  for (const el of cards) {
+    let frame = 0;
+    let px = 0;
+    let py = 0;
+
+    const write = () => {
+      frame = 0;
+      if (el !== active) return;
+      el.style.transform =
+        `perspective(900px) ` +
+        `rotateX(${(-py * TILT * 2).toFixed(2)}deg) ` +
+        `rotateY(${(px * TILT * 2).toFixed(2)}deg) ` +
+        `translateY(${-LIFT}px) scale(${SCALE})`;
+    };
+
+    const track = (event: PointerEvent) => {
+      if (!activeRect || activeRect.width === 0) return;
+      px = (event.clientX - activeRect.left) / activeRect.width - 0.5;
+      py = (event.clientY - activeRect.top) / activeRect.height - 0.5;
+      if (!frame) frame = requestAnimationFrame(write);
+    };
+
+    el.addEventListener("pointerenter", (event) => {
+      active = el;
+      activeRect = el.getBoundingClientRect();
+      el.style.transition = "transform 120ms linear";
+      track(event);
+    });
+
+    el.addEventListener("pointermove", (event) => {
+      if (active === el) track(event);
+    });
+
+    el.addEventListener("pointerleave", () => {
+      active = null;
+      activeRect = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      clear(el);
+    });
+  }
+
+  // 滚动或缩放后卡片的矩形变了，追着鼠标那次记录就失效：重算一次
+  const refresh = () => {
+    if (active) activeRect = active.getBoundingClientRect();
+  };
+  window.addEventListener("scroll", refresh, { passive: true });
+  window.addEventListener("resize", refresh, { passive: true });
+}
+
 // 锚点跳转：平滑只留给「点击页内锚点」这种真实意图。
 // 全局 scroll-behavior: smooth 会让滚轮每一格都变成动画，跟手感全没了。
 if (!reduceMotion) {

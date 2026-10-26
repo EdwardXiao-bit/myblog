@@ -27,7 +27,7 @@ const activities = (await getCollection('activities')).sort(
     ) : (
       <ol class="activity-list">
         {activities.map((item, i) => (
-          <li class:list={['activity', { 'is-lead': i === 0 }]} data-reveal>
+          <li class:list={['activity', { 'is-lead': i === 0 }]} data-reveal data-tilt>
             <a
               class:list={['thumb', 'notched']}
               data-reveal
@@ -128,7 +128,7 @@ const activities = (await getCollection('activities')).sort(
 
     .activity:hover {
       background: var(--bg-elev);
-      transform: translateY(-2px);
+      will-change: transform;
     }
 
     .activity:hover .thumb :global(img) {
