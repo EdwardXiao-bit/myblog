@@ -55,23 +55,39 @@ const { items } = Astro.props;
   .deck {
     position: relative;
     aspect-ratio: 16 / 10;
-    /* 后面的牌会往上错开，给上面留出这段距离，别贴住前一段文字 */
-    margin-top: 14px;
+    /* 后面的牌会绕底边转出去，上下都留点空，别压到上面一行字和下面的题注 */
+    margin-block: 22px 18px;
+    /* 给扇开的牌留出位置：宽度收一点，转出去的那几层落在右侧留白里，不会把页面撑宽 */
+    max-width: min(calc(100% - 68px), 560px);
   }
 
+  @media (max-width: 720px) {
+    .deck {
+      max-width: calc(100% - 54px);
+    }
+
+    .deck-card {
+      transform:
+        translate(calc(var(--depth) * 7px), calc(var(--depth) * -6px))
+        rotate(calc(var(--depth) * 1.8deg))
+        scale(calc(1 - var(--depth) * 0.014));
+    }
+  }
+
+  /* 姿态按「手里的一叠牌」摆：每往下一层就绕底边多转一点、向右上错开一点，
+     所以后面的牌会从右下和上方露出照片边 */
   .deck-card {
     position: absolute;
     inset: 0;
     display: block;
-    padding: 10px;
+    padding: 9px;
     background: var(--bg-elev);
     transform:
-      translateY(calc(var(--depth) * -14px))
-      scale(calc(1 - var(--depth) * 0.012));
+      translate(calc(var(--depth) * 13px), calc(var(--depth) * -11px))
+      rotate(calc(var(--depth) * 2.9deg))
+      scale(calc(1 - var(--depth) * 0.018));
     transform-origin: 50% 100%;
-    transition:
-      transform 460ms cubic-bezier(0.22, 0.61, 0.36, 1),
-      opacity 460ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition: transform 620ms cubic-bezier(0.16, 0.84, 0.24, 1);
     clip-path: polygon(
       0 12px,
       12px 0,
@@ -89,12 +105,6 @@ const { items } = Astro.props;
     height: 100%;
     object-fit: cover;
     background: var(--bg-sunken);
-  }
-
-  /* 抽牌：向上抬起并淡出，落到底层后回到原位（横向滑出会越过页面右外边距） */
-  .deck-card.is-out {
-    transform: translateY(-14px) scale(1.02);
-    opacity: 0;
   }
 
   .deck-card:focus-visible {
@@ -177,7 +187,6 @@ const { items } = Astro.props;
 
     if (!reduce && capText && cards.length > 1) {
       const CYCLE = 4200;
-      const OUT = 460;
       const ERASE = 12;
       const TYPE = 22;
 
@@ -200,17 +209,14 @@ const { items } = Astro.props;
         }
       };
 
+      // 抽牌：顶牌转到牌堆最底下，后面的牌各自前进一层
       const rotate = () => {
         const top = order[0];
-        top.classList.add('is-out');
-        window.setTimeout(() => {
-          top.classList.remove('is-out');
-          order = order.slice(1).concat(top);
-          deck.appendChild(top);
-          layout();
-          index = (index + 1) % cards.length;
-          erase(() => type(captions[index]));
-        }, OUT);
+        order = order.slice(1).concat(top);
+        deck.appendChild(top);
+        index = (index + 1) % cards.length;
+        layout();
+        erase(() => type(captions[index]));
       };
 
       timer = window.setTimeout(rotate, CYCLE);

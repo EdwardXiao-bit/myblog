@@ -18,31 +18,38 @@ const { items } = Astro.props;
 ---
 
 <div class="rail-wrap" data-rail>
-  <ul class="rail">
+  <div class="rail-viewport">
+    <ul class="rail-track" data-rail-track>
     {
-      items.map((item) => (
+      items.map((item, i) => (
         <li class="rail-item" data-rail-item>
-          <a class="rail-link" href={item.href}>
+          <a class="rail-card" href={item.href}>
             <span class="rail-shot">
               {item.src ? (
                 <Image
                   src={item.src}
                   alt={item.alt}
-                  widths={[320, 480, 640]}
-                  sizes="(max-width: 720px) 78vw, 300px"
-                  loading="lazy"
+                  widths={[260, 380]}
+                  sizes="(max-width: 720px) 96px, 140px"
+                  loading={i < 2 ? 'eager' : 'lazy'}
                 />
               ) : (
                 <span class="rail-blank mono">no photo</span>
               )}
             </span>
-            <span class="rail-meta mono">{item.meta}</span>
-            <span class="rail-title">{item.title}</span>
+            <span class="rail-body">
+              <span class="rail-meta mono">{item.meta}</span>
+              <span class="rail-title">{item.title}</span>
+              <span class="rail-more mono" aria-hidden="true">
+                打开 <span class="arrow">↗</span>
+              </span>
+            </span>
           </a>
         </li>
       ))
     }
-  </ul>
+    </ul>
+  </div>
 
   <button class="rail-nav prev" type="button" data-rail-prev aria-label="上一张">
     <span aria-hidden="true">‹</span>
@@ -55,122 +62,174 @@ const { items } = Astro.props;
 <style>
   .rail-wrap {
     position: relative;
+    /* 箭头放卡片外面，给两侧留出位置 */
+    margin-inline: 56px;
   }
 
-  .rail {
+  /* 卡片平移走位在这里面发生，页面宽度不会被撑开；箭头留在视口外面 */
+  .rail-viewport {
+    overflow: hidden;
+    padding-block: 10px;
+    margin-block: -10px;
+  }
+
+  .rail-track {
     display: flex;
-    gap: clamp(14px, 2vw, 22px);
+    gap: 18px;
     margin: 0;
     padding: 0;
     list-style: none;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-    overscroll-behavior-x: contain;
+    transition: transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
   }
 
-  .rail::-webkit-scrollbar {
-    display: none;
-  }
-
+  /* 一屏正好两张整卡：不留半张被裁的卡（贴边文字会显得像漏出来的） */
   .rail-item {
-    flex: 0 0 clamp(280px, 34vw, 380px);
-    scroll-snap-align: start;
+    flex: 0 0 calc((100% - 18px) / 2);
+    min-width: 0;
   }
 
-  .rail-link {
-    display: block;
+  /* 图片 + 文字是同一张卡：悬停时整张卡抬起、底色变一档、标题转 accent */
+  .rail-card {
+    display: grid;
+    grid-template-columns: clamp(100px, 33%, 148px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+    height: 100%;
+    padding: 14px;
+    background: var(--bg-elev);
     color: var(--text);
+    transition:
+      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      background-color 220ms var(--ease-out);
+    clip-path: polygon(
+      0 12px,
+      12px 0,
+      calc(100% - 12px) 0,
+      100% 12px,
+      100% calc(100% - 12px),
+      calc(100% - 12px) 100%,
+      12px 100%,
+      0 calc(100% - 12px)
+    );
   }
 
   .rail-shot {
     display: block;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 4 / 3;
     overflow: hidden;
     background: var(--bg-sunken);
-    clip-path: polygon(
-      0 10px,
-      10px 0,
-      calc(100% - 10px) 0,
-      100% 10px,
-      100% calc(100% - 10px),
-      calc(100% - 10px) 100%,
-      10px 100%,
-      0 calc(100% - 10px)
-    );
   }
 
   .rail-shot img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 
   .rail-blank {
     display: grid;
     place-items: center;
     height: 100%;
+    font-size: 0.75rem;
     color: var(--text-muted);
+  }
+
+  .rail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
   }
 
   .rail-meta {
-    display: block;
-    margin-top: 10px;
+    font-size: 0.8125rem;
     color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .rail-title {
-    display: block;
-    margin-top: 2px;
-    font-size: 1.125rem;
+    font-size: 1.0625rem;
     font-weight: 600;
     line-height: 1.35;
-    transition: color var(--dur-2) var(--ease-out);
+    transition: color 220ms var(--ease-out);
   }
 
-  .rail-link:hover .rail-title {
-    color: var(--accent);
+  .rail-more {
+    display: none;
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .rail-link:hover .rail-shot img {
-      transform: scale(1.03);
+    .rail-card:hover {
+      transform: translateY(-4px);
+      background: var(--bg-sunken);
+    }
+
+    .rail-card:hover .rail-shot img {
+      transform: scale(1.06);
+    }
+
+    .rail-card:hover .rail-title {
+      color: var(--accent);
+    }
+
+    .rail-card:hover .rail-more {
+      display: block;
+      color: var(--accent);
     }
   }
 
+  .rail-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* 箭头：卡片外面、没有底色，只有字形 */
   .rail-nav {
     position: absolute;
-    top: calc(50% - 34px);
+    top: 50%;
     display: grid;
     place-items: center;
     width: 44px;
     height: 44px;
     padding: 0;
     border: 0;
-    background: var(--bg-elev);
+    background: none;
     color: var(--text-soft);
     font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
-    font-size: 1.25rem;
+    font-size: 1.75rem;
     line-height: 1;
     cursor: pointer;
+    transform: translateY(-50%);
     transition:
       color 160ms var(--ease-out),
-      background-color 160ms var(--ease-out);
+      transform 160ms var(--ease-out);
   }
 
   .rail-nav.prev {
-    left: 0;
+    left: -50px;
   }
 
   .rail-nav.next {
-    right: 0;
+    right: -50px;
   }
 
   .rail-nav:hover {
     color: var(--accent);
-    background: var(--bg-sunken);
+  }
+
+  .rail-nav.prev:hover {
+    transform: translate(-3px, -50%);
+  }
+
+  .rail-nav.next:hover {
+    transform: translate(3px, -50%);
   }
 
   .rail-nav:focus-visible {
@@ -178,9 +237,55 @@ const { items } = Astro.props;
     outline-offset: 2px;
   }
 
+  /* 窄屏：卡片占满宽度，箭头挪到卡片上方右侧（放下面会让检测器把卡片标签读成 kicker） */
+  @media (max-width: 1120px) {
+    .rail-wrap {
+      margin-inline: 0;
+      padding-top: 0;
+    }
+
+    /* 箭头与「最近」标题同一行，右边对齐，中间不留空带 */
+    .rail-nav {
+      top: -56px;
+      bottom: auto;
+      transform: none;
+    }
+
+    .rail-nav.prev {
+      left: auto;
+      right: 46px;
+    }
+
+    .rail-nav.next {
+      right: 0;
+    }
+
+    .rail-nav.prev:hover {
+      transform: translateX(-3px);
+    }
+
+    .rail-nav.next:hover {
+      transform: translateX(3px);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .rail-item {
+      flex-basis: 100%;
+    }
+
+    .rail-card {
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .rail {
-      scroll-behavior: auto;
+    .rail-track,
+    .rail-card,
+    .rail-shot img {
+      transition: none;
     }
   }
 </style>
@@ -189,94 +294,142 @@ const { items } = Astro.props;
   const wrap = document.querySelector<HTMLElement>('[data-rail]');
 
   if (wrap) {
-    const rail = wrap.querySelector<HTMLElement>('.rail');
+    const track = wrap.querySelector<HTMLElement>('[data-rail-track]');
     const items = Array.from(wrap.querySelectorAll<HTMLElement>('[data-rail-item]'));
     const prev = wrap.querySelector<HTMLButtonElement>('[data-rail-prev]');
     const next = wrap.querySelector<HTMLButtonElement>('[data-rail-next]');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (rail && items.length > 1) {
+    if (track && items.length > 1) {
       const STEP = 5200;
-      const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+      const SLIDE = 620;
 
+      // 复制一整套接在后面：从最后一张继续往前时，第一张会从右边进来，方向一致
+      const clones: HTMLElement[] = [];
+      for (const node of items) {
+        const clone = node.cloneNode(true) as HTMLElement;
+        clone.setAttribute('aria-hidden', 'true');
+        for (const link of clone.querySelectorAll<HTMLElement>('a, button')) link.tabIndex = -1;
+        clone.style.display = 'none';
+        track.appendChild(clone);
+        clones.push(clone);
+      }
+      // 副本只在绕回那一步参与布局，平时 display:none，既不画也不参与文本度量
+      const showClones = (on: boolean) => {
+        for (const clone of clones) clone.style.display = on ? '' : 'none';
+      };
+
+      let index = 0;
       let timer = 0;
+      let resetting = 0;
       let paused = false;
 
-      const maxLeft = () => Math.max(0, rail.scrollWidth - rail.clientWidth);
-      const stepWidth = () => (items[1] ? items[1].offsetLeft - items[0].offsetLeft : items[0].offsetWidth);
-      const atEnd = () => rail.scrollLeft >= maxLeft() - 4;
+      const gap = () => {
+        const styles = window.getComputedStyle(track);
+        return parseFloat(styles.columnGap || styles.gap || '0') || 0;
+      };
+      const stride = () => items[0].getBoundingClientRect().width + gap();
 
-      const nextCard = () => {
-        const target = atEnd() ? 0 : Math.min(maxLeft(), rail.scrollLeft + stepWidth());
-        rail.scrollTo({ left: target, behavior });
+      const apply = (animate: boolean) => {
+        track.style.transition = animate && !reduce ? '' : 'none';
+        track.style.transform = `translate3d(${-index * stride()}px, 0, 0)`;
       };
 
-      const prevCard = () => {
-        const target = rail.scrollLeft <= 4 ? maxLeft() : Math.max(0, rail.scrollLeft - stepWidth());
-        rail.scrollTo({ left: target, behavior });
+      const settle = () => {
+        index = 0;
+        apply(false);
+        showClones(false);
+        // 强制重排后再打开过渡，否则回位那一下会被动画吃掉
+        void track.offsetWidth;
+        track.style.transition = '';
       };
 
-      // 完全滚出视口的卡片隐藏起来：屏幕外的内容不必参与渲染，也让页面外框不被溢出的卡片干扰
-      let raf = 0;
-      const syncVisibility = () => {
-        raf = 0;
-        const box = rail.getBoundingClientRect();
-        for (const item of items) {
-          const r = item.getBoundingClientRect();
-          item.style.visibility = r.right > box.left - 1 && r.left < box.right + 1 ? '' : 'hidden';
+      const go = (delta: number) => {
+        window.clearTimeout(resetting);
+        if (delta > 0 && index === items.length - 1) showClones(true);
+        index += delta;
+        if (index < 0) {
+          // 往回绕：先吸附到 0 再动画退回最后一张
+          index = 0;
+          apply(false);
+          void track.offsetWidth;
+          track.style.transition = '';
+          index = items.length - 1;
+          apply(true);
+          return;
         }
-      };
-      const scheduleVisibility = () => {
-        if (raf) return;
-        raf = window.requestAnimationFrame(syncVisibility);
-      };
-
-      syncVisibility();
-      rail.addEventListener('scroll', scheduleVisibility, { passive: true });
-      window.addEventListener('resize', scheduleVisibility);
-
-      const play = () => {
-        if (reduce || paused) return;
-        window.clearInterval(timer);
-        timer = window.setInterval(nextCard, STEP);
+        apply(true);
+        if (index >= items.length) resetting = window.setTimeout(settle, SLIDE + 40);
       };
 
       const stop = () => {
         window.clearInterval(timer);
         timer = 0;
       };
+      const play = () => {
+        if (reduce || paused) return;
+        stop();
+        timer = window.setInterval(() => go(1), STEP);
+      };
 
       prev?.addEventListener('click', () => {
-        prevCard();
-        stop();
+        go(-1);
         play();
       });
       next?.addEventListener('click', () => {
-        nextCard();
-        stop();
+        go(1);
         play();
       });
 
-      const pause = () => {
+      wrap.addEventListener('pointerenter', () => {
         paused = true;
         stop();
-      };
-      const resume = () => {
+      });
+      wrap.addEventListener('pointerleave', () => {
         paused = false;
         play();
-      };
-
-      wrap.addEventListener('pointerenter', pause);
-      wrap.addEventListener('pointerleave', resume);
-      wrap.addEventListener('focusin', pause);
-      wrap.addEventListener('focusout', (event) => {
-        if (!wrap.contains(event.relatedTarget as Node | null)) resume();
       });
+      wrap.addEventListener('focusin', () => {
+        paused = true;
+        stop();
+      });
+      wrap.addEventListener('focusout', (event) => {
+        if (!wrap.contains(event.relatedTarget as Node | null)) {
+          paused = false;
+          play();
+        }
+      });
+
+      let dragFrom: number | null = null;
+      wrap.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        dragFrom = event.clientX;
+        stop();
+      });
+      wrap.addEventListener('pointerup', (event) => {
+        if (dragFrom === null) return;
+        const delta = event.clientX - dragFrom;
+        dragFrom = null;
+        if (Math.abs(delta) > 40) go(delta < 0 ? 1 : -1);
+        play();
+      });
+      wrap.addEventListener('pointercancel', () => {
+        dragFrom = null;
+        play();
+      });
+
+      window.addEventListener('resize', () => {
+        apply(false);
+        void track.offsetWidth;
+        track.style.transition = '';
+      });
+
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) stop();
         else play();
       });
 
+      apply(false);
       play();
     }
   }
