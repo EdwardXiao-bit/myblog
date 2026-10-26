@@ -216,14 +216,22 @@ const { items } = Astro.props;
       });
 
       // 顶牌：抬起转出 → 落回牌堆最底下那一层
-      // 三步：抬起来转出去（角度给足）→ 荡到牌堆右侧外缘 → 从右下方滑回牌底
+      // 三步：抬起来转出去（角度给足）→ 荡到牌堆右侧外缘 → 滑回牌底。
+      // 窄屏按牌宽收缩行程，避免旋出时把页面撑出横向滚动。
+      const narrow = deck.clientWidth < 480;
+      const outX = narrow ? 46 : 92;
+      const outY = narrow ? -28 : -48;
+      const sideX = narrow ? 58 : 124;
+      const sideY = narrow ? 12 : 18;
+      const rotA = narrow ? 34 : 46;
+      const rotB = narrow ? 14 : 20;
       const flight = top.animate(
         [
           { transform: stack(0), opacity: 1, offset: 0 },
-          { transform: 'translate3d(92px, -48px, 0) rotate(46deg) scale(0.95)', opacity: 1, offset: 0.34 },
-          { transform: 'translate3d(124px, 18px, 0) rotate(20deg) scale(0.925)', opacity: 1, offset: 0.72 },
-          { transform: 'translate3d(96px, -10px, 0) rotate(14deg) scale(0.935)', opacity: 0.88, offset: 0.9 },
-          { transform: 'translate3d(60px, -28px, 0) rotate(10deg) scale(0.942)', opacity: 0.22, offset: 0.978 },
+          { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotA}deg) scale(0.95)`, opacity: 1, offset: 0.34 },
+          { transform: `translate3d(${sideX}px, ${sideY}px, 0) rotate(${rotB}deg) scale(0.925)`, opacity: 1, offset: 0.72 },
+          { transform: `translate3d(${Math.round(sideX * 0.8)}px, -10px, 0) rotate(${Math.round(rotB * 0.7)}deg) scale(0.935)`, opacity: 0.88, offset: 0.9 },
+          { transform: `translate3d(${Math.round(sideX * 0.5)}px, -28px, 0) rotate(${Math.round(rotB * 0.5)}deg) scale(0.942)`, opacity: 0.22, offset: 0.978 },
           { transform: stack(cards.length - 1), opacity: 0, offset: 1 },
         ],
         { duration: FLIGHT, easing: 'cubic-bezier(0.3, 0.8, 0.24, 1)', fill: 'forwards' },
