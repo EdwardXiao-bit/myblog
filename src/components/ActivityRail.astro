@@ -40,9 +40,9 @@ const { items } = Astro.props;
             <span class="rail-body">
               <span class="rail-meta mono">{item.meta}</span>
               <span class="rail-title">{item.title}</span>
-              <span class="rail-more mono" aria-hidden="true">
-                打开 <span class="arrow">↗</span>
-              </span>
+            </span>
+            <span class="rail-more mono" aria-hidden="true">
+              打开 <span class="arrow">↗</span>
             </span>
           </a>
         </li>
@@ -83,20 +83,20 @@ const { items } = Astro.props;
     will-change: transform;
   }
 
-  /* 一屏正好两张整卡：不留半张被裁的卡（贴边文字会显得像漏出来的） */
+  /* 一次只停一张卡：每张占满可视区，步子正好等于一屏 */
   .rail-item {
-    flex: 0 0 calc((100% - 18px) / 2);
+    flex: 0 0 100%;
     min-width: 0;
   }
 
   /* 图片 + 文字是同一张卡：悬停时整张卡抬起、底色变一档、标题转 accent */
   .rail-card {
     display: grid;
-    grid-template-columns: clamp(100px, 33%, 148px) minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: clamp(200px, 38%, 340px) minmax(0, 1fr) auto;
+    gap: clamp(16px, 2.4vw, 28px);
     align-items: center;
     height: 100%;
-    padding: 14px;
+    padding: 16px;
     background: var(--bg-elev);
     color: var(--text);
     transition:
@@ -158,11 +158,24 @@ const { items } = Astro.props;
     transition: color 220ms var(--ease-out);
   }
 
+  /* 右侧常驻一列只是为了让卡片两端平衡；悬停才显形 */
   .rail-more {
-    display: none;
-    margin-top: 2px;
+    align-self: center;
+    padding-inline-end: 6px;
     font-size: 0.8125rem;
     color: var(--text-muted);
+    opacity: 0.45;
+    translate: 0 0;
+    transition:
+      opacity 200ms var(--ease-out),
+      translate 200ms var(--ease-out),
+      color 200ms var(--ease-out);
+  }
+
+  .rail-card:hover .rail-more,
+  .rail-card:focus-visible .rail-more {
+    opacity: 1;
+    color: var(--accent);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -179,10 +192,7 @@ const { items } = Astro.props;
       color: var(--accent);
     }
 
-    .rail-card:hover .rail-more {
-      display: block;
-      color: var(--accent);
-    }
+
   }
 
   .rail-card:focus-visible {
@@ -203,7 +213,7 @@ const { items } = Astro.props;
     background: none;
     color: var(--text-soft);
     font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
-    font-size: 1.75rem;
+    font-size: 1.125rem;
     line-height: 1;
     cursor: pointer;
     transform: translateY(-50%);
@@ -275,7 +285,7 @@ const { items } = Astro.props;
     }
 
     .rail-card {
-      grid-template-columns: 104px minmax(0, 1fr);
+      grid-template-columns: 118px minmax(0, 1fr) auto;
       gap: 12px;
       padding: 12px;
     }

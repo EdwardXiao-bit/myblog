@@ -31,8 +31,8 @@ const { items } = Astro.props;
           <Image
             src={item.src}
             alt={item.alt}
-            widths={[420, 640, 900]}
-            sizes="(max-width: 900px) 92vw, 440px"
+            widths={[520, 760, 1040]}
+            sizes="(max-width: 900px) 92vw, 520px"
             loading={i === 0 ? 'eager' : 'lazy'}
           />
         </a>
@@ -58,12 +58,12 @@ const { items } = Astro.props;
     /* 后面的牌会绕底边转出去，上下都留点空，别压到上面一行字和下面的题注 */
     margin-block: 22px 18px;
     /* 给扇开的牌留出位置：宽度收一点，转出去的那几层落在右侧留白里，不会把页面撑宽 */
-    max-width: min(calc(100% - 68px), 560px);
+    max-width: min(calc(100% - 56px), 620px);
   }
 
   @media (max-width: 720px) {
     .deck {
-      max-width: calc(100% - 54px);
+      max-width: calc(100% - 48px);
     }
 
     .deck-card {
@@ -169,37 +169,109 @@ const { items } = Astro.props;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const captions = cards.map((card) => card.dataset.caption ?? '');
 
+    const FLIGHT = 920;   // 顶牌从最上面转到牌底的总时长
+    const FORWARD = 780;  // 下面几张各前进一层
+    const INSIDE = 400;   // 顶牌转到这个时刻开始钻到牌底（改 z-index）
+
     let order = cards.slice();
     let index = 0;
     let timer = 0;
+    let busy = false;
+
+    const stack = (depth: number) =>
+      `translate3d(${depth * 13}px, ${depth * -11}px, 0) rotate(${depth * 2.9}deg) scale(${1 - depth * 0.018})`;
 
     const layout = () => {
       order.forEach((card, depth) => {
         card.style.setProperty('--depth', String(depth));
+        card.style.transform = stack(depth);
         card.style.zIndex = String(cards.length - depth);
         card.tabIndex = depth === 0 ? 0 : -1;
       });
     };
 
+    // 静态姿态直接写在行内，动画结束后再交回样式表
+    for (const card of cards) card.style.transition = 'none';
     layout();
+    void deck.offsetWidth;
+    for (const card of cards) card.style.transition = '';
 
     if (capText) capText.textContent = captions[0];
+
+    let type: (text: string, i?: number) => void;
+    let erase: (done: () => void) => void;
+
+    const flip = () => {
+      if (busy) return;
+      busy = true;
+      const top = order[0];
+      const rest = order.slice(1);
+
+      // 下面几张各前进一层：从它们现在的姿态平滑走到上一层
+      rest.forEach((card, i) => {
+        card.animate(
+          [{ transform: stack(i + 1) }, { transform: stack(i) }],
+          { duration: FORWARD, easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)', fill: 'forwards' },
+        );
+      });
+
+      // 顶牌：抬起转出 → 落回牌堆最底下那一层
+      const flight = top.animate(
+        [
+          { transform: stack(0), offset: 0 },
+          { transform: `translate3d(34px, -20px, 0) rotate(27deg) scale(0.93)`, offset: 0.42 },
+          { transform: stack(cards.length - 1), offset: 1 },
+        ],
+        { duration: FLIGHT, easing: 'cubic-bezier(0.34, 0.86, 0.2, 1)', fill: 'forwards' },
+      );
+
+      // 抬起之后钻到牌底：先把层级放低，再往下插
+      window.setTimeout(() => {
+        top.style.zIndex = '0';
+        rest.forEach((card, i) => {
+          card.style.zIndex = String(rest.length - i);
+        });
+      }, INSIDE);
+
+      const finish = () => {
+        for (const card of cards) {
+          for (const anim of card.getAnimations()) anim.cancel();
+        }
+        order = rest.concat(top);
+        deck.appendChild(top);
+        for (const card of cards) card.style.transition = 'none';
+        layout();
+        void deck.offsetWidth;
+        for (const card of cards) card.style.transition = '';
+        index = (index + 1) % cards.length;
+        busy = false;
+        erase(() => type(captions[index]));
+      };
+
+      if (reduce) {
+        for (const card of cards) for (const anim of card.getAnimations()) anim.cancel();
+        finish();
+        return;
+      }
+
+      flight.finished.then(finish).catch(() => {});
+    };
 
     if (!reduce && capText && cards.length > 1) {
       const CYCLE = 4200;
       const ERASE = 12;
       const TYPE = 22;
 
-      const type = (text: string, i = 0) => {
+      type = (text: string, i = 0) => {
         capText.textContent = text.slice(0, i);
         if (i < text.length) {
           timer = window.setTimeout(() => type(text, i + 1), TYPE);
         } else {
-          timer = window.setTimeout(rotate, CYCLE);
+          timer = window.setTimeout(flip, CYCLE);
         }
       };
 
-      const erase = (done: () => void) => {
+      erase = (done: () => void) => {
         const current = capText.textContent ?? '';
         if (current.length > 0) {
           capText.textContent = current.slice(0, -1);
@@ -209,23 +281,12 @@ const { items } = Astro.props;
         }
       };
 
-      // 抽牌：顶牌转到牌堆最底下，后面的牌各自前进一层
-      const rotate = () => {
-        const top = order[0];
-        order = order.slice(1).concat(top);
-        deck.appendChild(top);
-        index = (index + 1) % cards.length;
-        layout();
-        erase(() => type(captions[index]));
-      };
+      timer = window.setTimeout(flip, CYCLE);
 
-      timer = window.setTimeout(rotate, CYCLE);
-
-      // 悬停或键盘聚焦时暂停自动抽牌，离开后接着走
       const hold = () => window.clearTimeout(timer);
       const release = () => {
         window.clearTimeout(timer);
-        timer = window.setTimeout(rotate, 1500);
+        timer = window.setTimeout(flip, 1500);
       };
       deck.addEventListener('pointerenter', hold);
       deck.addEventListener('pointerleave', release);
