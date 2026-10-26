@@ -97,53 +97,60 @@
 4. **工信部短信核验**：收到 `12381` 短信后 **24 小时内**按提示回复，超时要重新提交；
 5. 管局审核：**1–20 个工作日**（各省不同，江浙沪快一些）。
 
-### 2.4 备案期间的两条铁律
+### 2.4 备案期间的三条铁律
 
-- **域名不要解析到这台大陆服务器**去提供服务。备案核验时如果发现域名已经能打开，会直接退回；
-- 想先装环境、跑测试，用**公网 IP 直连**（80/443 在大陆机房对未备案域名是拦的，但 IP 一般能通，够你调试）。
+- **域名不要解析到这台大陆服务器**（解析记录先暂停/不建）。核验时若发现域名已能打开，会被退回；
+- **对外端口直接关掉**：安全组入方向删掉 TCP 80、443，只留 22。这样整站对外不可达，最不容易被抽查出问题，也不用改任何配置；
+- 只在服务器本机验证部署是否正常：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}
+' localhost/healthz   # 200
+```
+
+安全组删的是外部入口，不影响本机回环，`deploy.sh` 的自检照常能跑。需要在外面看一眼效果时，临时把 80 加回安全组，看完立刻删掉。
+
+> 顺序上很容易搞反：**备案期关端口 → 备案通过 → 先加回端口、再启用解析、最后跑 `deploy.sh`**。
+> 如果端口还关着就跑部署，Caddy 的 HTTP-01 校验访问不到 80，证书必然签不下来。
 
 ---
 
 ## 3. 备案通过后：上线
 
-1. **解析域名**：A 记录 → 服务器公网 IP（阿里云云解析 / 腾讯云 DNSPod），等 `ping 域名` 出 IP。
-2. **部署**：照 `deploy-vps.md` §2–§7 走（装 Docker → 拉代码 → `.env` → `./deploy.sh` → 接域名 + HTTPS）。
-   大陆机器只需要额外把镜像源换掉，见 §5。
-3. **挂备案号**（法律义务，不挂会被要求整改）：
-
-`.env` 里加一项（顺便给页脚用）：
-
-```ini
-ICP_BEIAN=京ICP备2026xxxxxx号
-```
-
-代码侧两处小改：
+1. **先加回端口**：安全组入方向加回 TCP 80、443（备案期被删掉的那两条）。
+2. **再解析域名**：`@` 和 `www` 两条 A 记录 → 服务器公网 IP（阿里云云解析 / 腾讯云 DNSPod），等 `ping 域名` 出 IP。
+   TTL 600 的话最多 10 分钟，`nslookup edwardxiao.space 223.5.5.5` 能出 IP 再往下走。
+3. **改 `.env` 三项**：`SITE_URL=https://你的域名`、`SITE_DOMAIN=你的域名`、`ACME_EMAIL=你的邮箱`，
+   然后 `git pull && ./deploy.sh`（`SITE_URL` 是构建期变量，必须重新构建）。大陆机器还要先处理镜像源，见 §5。
+4. **挂备案号**（法律义务，不挂会被要求整改）。仓库里已经接好了，只改值：
 
 ```ts
-// src/data/site.ts —— 在 SiteInfo 里加字段
-icp: '京ICP备2026xxxxxx号',   // 没备案就留空字符串
+// src/data/site.ts
+icp: '川ICP备2026xxxxxx号',        // 页脚自动渲染，并链到 beian.miit.gov.cn
+police: '川公网安备 xxxxxxxxxx 号', // 公安联网备案号，下来了再填
 ```
 
-```astro
-<!-- src/components/Footer.astro —— 放在 footer-line 里 -->
-{site.icp && (
-  <a class="icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">
-    {site.icp}
-  </a>
-)}
+改完 `git pull && ./deploy.sh` 生效（页脚不显示空字段，没填就自然不出现）。
+
+5. **公安联网备案**：网站开通后 **30 日内**去 <https://beian.gov.cn/> 注册提交（填 ICP 号、域名、服务器 IP、接入商），审核通过后把「公网安备 xxxxxxxx 号」填进 `src/data/site.ts` 的 `police`。
+
+6. **屏蔽 IP 直连**（可选，但推荐）：让 `http://服务器IP` 返回 403，只认域名。
+   必须**等 `SITE_DOMAIN` 已经填好**再做，否则 Caddy 起不来。在站点块最前面加：
+
+```caddyfile
+	# 只放行域名与本机回环，IP 直连/未知域名一律 403
+	@not_ours not host {$SITE_DOMAIN} www.{$SITE_DOMAIN} localhost 127.0.0.1
+	respond @not_ours "本站只通过域名访问。" 403
 ```
 
-样式（`footer` 的 `<style>` 里加）：
+改完先验证再 reload（顺序不能反）：
 
-```css
-.icp {
-  color: var(--text-muted);
-  text-decoration: none;
-}
-.icp:hover { color: var(--accent); }
+```bash
+docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-4. **公安联网备案**：网站开通后 **30 日内**去 <https://beian.gov.cn/> 注册提交（填 ICP 号、域名、服务器 IP、接入商），审核通过后把「公网安备 xxxxxxxx 号」也挂到页脚。
+验证：`curl -I http://服务器IP` → 403；`curl -s https://你的域名/healthz` → 200。
 
 ---
 
@@ -179,8 +186,45 @@ sudo systemctl restart docker
 
 - **apt 慢**：换成 `mirrors.aliyun.com` / `mirrors.cloud.tencent.com` 的源；
 - **带宽小**（3–5M）：首屏图片已经压成 WebP，问题不大；如果照片多，考虑把 `src/assets` 的图再压一档（`sharp` 质量 70）；
-- **证书**：Caddy 一样能签，前提是 **80 端口对公网开放**（安全组 + `ufw` 两步都要）；
+- **证书**：Caddy 一样能签，前提是 **80 端口对公网开放**（安全组放行即可，别再叠一层 ufw——Docker 会绕过它自己写 iptables）；
 - **时区**：`sudo timedatectl set-timezone Asia/Shanghai`，否则备份时间会差 8 小时。
+
+### 5.1 镜像拉不下来的三种情形（按顺序试）
+
+`daemon.json` 里的 `registry-mirrors` 只对 `docker pull` 生效，**BuildKit 构建时不读它**，所以经常出现「pull 能拉、build 报 not found/timeout」。
+
+1. **只用 BuildKit 构建基础镜像**（最常见）：给 buildx 单独配镜像再建 builder
+
+```bash
+sudo mkdir -p /etc/buildkit
+sudo tee /etc/buildkit/buildkitd.toml <<'EOF'
+[registry."docker.io"]
+  mirrors = ["https://<你的加速器地址>.mirror.aliyuncs.com"]
+EOF
+
+# 注意：BuildKit 低于 v0.10 不支持 mirrors 字段（buildx 老版本会装 v0.9.x），要显式指定新镜像
+docker pull moby/buildkit:v0.20.0
+docker buildx create --name cn-mirror --driver docker-container   --driver-opt network=host --driver-opt image=moby/buildkit:v0.20.0   --config /etc/buildkit/buildkitd.toml
+docker buildx use cn-mirror
+docker buildx inspect --bootstrap | grep "BuildKit version"
+```
+
+`.env` 里写 `BUILDX_BUILDER=cn-mirror`，`deploy.sh` 就会用这个 builder 构建。
+
+2. **compose 版本太老**（不认 `build.builder` 字段）：用上面的 `BUILDX_BUILDER` 就够了，不要往 `docker-compose.yml` 里加 `builder:`，会报 `additional properties 'builder' not allowed`。
+
+3. **BuildKit 彻底出不去网**时，直接换国内镜像站的基础镜像，不用改代码：
+
+```ini
+# .env
+NODE_IMAGE=docker.m.daocloud.io/library/node:24-slim
+```
+
+### 5.2 备份目录必须挂卷
+
+`scripts/backup.mjs` 默认写相对路径 `backups/`，在容器里就是 `/app/backups`——**不在挂载卷里，容器一重建就没了**。
+`docker-compose.yml` 已经给 app 设了 `BACKUP_DIR: /backups` 并挂了 `./backups:/backups`，所以宿主机 `ls backups/` 应该能看到备份目录。
+如果看到「保留最近 N 份于 /app/backups」，说明环境变量没生效，检查 `docker compose exec -T app sh -c 'echo $BACKUP_DIR'`。
 
 ---
 
@@ -209,7 +253,8 @@ sudo systemctl restart docker
 - [ ] 页脚能看到 ICP 备案号，点进去是 beian.miit.gov.cn
 - [ ] 公安备案号（拿到后）也在页脚
 - [ ] `docker compose ps` 两个容器都 healthy
-- [ ] 备份 cron 跑过（`ls backups/` 有当天文件）
+- [ ] 备份 cron 跑过（`ls backups/` 有当天文件，且路径在宿主机而不是容器里）
+- [ ] `curl -I http://服务器IP` 已被 403 挡住（若启用了 IP 屏蔽）
 - [ ] `./deploy.sh --pull` 能完成一次滚动更新
 - [ ] 浏览器控制台无报错、无混合内容警告
 - [ ] 用 [itdog.cn](https://www.itdog.cn/) 从多地 ping 一次，确认解析和可达性
