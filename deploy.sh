@@ -76,7 +76,17 @@ fi
 
 # ---------- 3. 构建 + 启动 ----------
 say "构建镜像（SITE_URL 在这一步写进产物）"
-docker compose build
+# 国内机器常需要走镜像加速：daemon.json 的 registry-mirrors 只对 docker pull 生效，
+# BuildKit 要单独的 buildkitd.toml。用 buildx 建好 builder 后，在 .env 里写
+# BUILDX_BUILDER=<名字> 即可，脚本会优先用它。
+if [ -n "${BUILDX_BUILDER:-}" ]; then
+  echo "  使用 buildx builder: $BUILDX_BUILDER"
+  docker buildx build --builder "$BUILDX_BUILDER" --load \
+    --build-arg SITE_URL="$SITE_URL" \
+    -t myblog-app:latest . || die "docker buildx build 失败，见上面的输出"
+else
+  docker compose build
+fi
 
 say "启动服务"
 docker compose up -d
