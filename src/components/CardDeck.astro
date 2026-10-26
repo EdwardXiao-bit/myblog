@@ -215,29 +215,36 @@ const { items } = Astro.props;
         );
       });
 
-      // 顶牌：整张牌先离开牌堆（飞到牌堆右下方、和牌堆完全不相交），
-      // 再把层级降到牌堆下面，从底下插回去 —— 全程不靠透明度过场。
+      // 顶牌：顺时针旋出到牌堆右边（离开牌堆、与牌堆零重叠），停一下，
+      // 换到牌堆下面之后逆时针旋回、从右边插回牌底。全程不靠透明度。
       const w = top.offsetWidth;
       const h = top.offsetHeight;
       const narrow = w < 480;
       const outX = narrow ? 40 : 96;
       const outY = narrow ? -30 : -56;
-      const rotA = narrow ? 34 : 44;
-      const rotB = narrow ? 15 : 18;
-      const awayX = Math.round(w * (narrow ? 0.2 : 0.3));
-      // 离开时略微缩小（像是被拿远），并按缩放后的包围盒算出完全离开牌堆所需的位移
-      const awayScale = narrow ? 0.7 : 0.62;
-      const rad = (rotB * Math.PI) / 180;
-      const awayY = Math.round(h * awayScale * Math.cos(rad) + w * awayScale * Math.sin(rad) + 14);
-      const away = `translate3d(${awayX}px, ${awayY}px, 0) rotate(${rotB}deg) scale(${awayScale})`;
-      const rise = `translate3d(${Math.round(awayX * 0.62)}px, ${Math.round(awayY * 0.34)}px, 0) rotate(${Math.round(rotB * 0.8)}deg) scale(${awayScale + 0.2})`;
+      const awayScale = narrow ? 0.62 : 0.6;
+      const rotLift = narrow ? 32 : 40;   // 顺时针旋出的中段
+      const rotAway = narrow ? 42 : 52;   // 离开牌堆时转到最大角
+      // 按缩放+旋转后的包围盒算位移：让整张牌落在牌堆右边、与牌堆零重叠
+      const radAway = (rotAway * Math.PI) / 180;
+      const bboxW = awayScale * (w * Math.cos(radAway) + h * Math.sin(radAway));
+      // 桌面：从右边出去、转满角度；手机屏幕窄，右边没位置，改成从下方离开
+      const awayX = narrow ? Math.round(w * 0.18) : Math.round(Math.max(w * 0.9, w / 2 + bboxW / 2 + 12));
+      const awayY = narrow
+        ? Math.round(h * awayScale * Math.cos((32 * Math.PI) / 180) + w * awayScale * Math.sin((32 * Math.PI) / 180) + 14)
+        : Math.round(h * 0.08);
+      const rotAwayN = narrow ? 32 : rotAway;
+      const away = `translate3d(${awayX}px, ${awayY}px, 0) rotate(${rotAwayN}deg) scale(${awayScale})`;
+      const rise = narrow
+        ? `translate3d(${Math.round(awayX * 0.6)}px, ${Math.round(awayY * 0.4)}px, 0) rotate(16deg) scale(${Math.round((awayScale + 0.24) * 100) / 100})`
+        : `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY + h * 0.1)}px, 0) rotate(26deg) scale(0.8)`;
       const flight = top.animate(
         [
-          { transform: stack(0), easing: 'cubic-bezier(0.18, 0.86, 0.28, 1)', offset: 0 },
-          { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotA}deg) scale(0.95)`, easing: 'cubic-bezier(0.34, 0.02, 0.42, 1)', offset: 0.16 },
-          { transform: away, easing: 'linear', offset: 0.47 },
-          { transform: away, easing: 'cubic-bezier(0.3, 0, 0.4, 1)', offset: 0.61 },
-          { transform: rise, easing: 'cubic-bezier(0.32, 0.86, 0.22, 1)', offset: 0.8 },
+          { transform: stack(0), easing: 'cubic-bezier(0.2, 0.84, 0.3, 1)', offset: 0 },
+          { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotLift}deg) scale(0.95)`, easing: 'cubic-bezier(0.4, 0.02, 0.4, 1)', offset: 0.16 },
+          { transform: away, easing: 'linear', offset: 0.44 },
+          { transform: away, easing: 'cubic-bezier(0.3, 0, 0.4, 1)', offset: 0.58 },
+          { transform: rise, easing: 'cubic-bezier(0.34, 0.8, 0.24, 1)', offset: 0.8 },
           { transform: stack(cards.length - 1), offset: 1 },
         ],
         { duration: FLIGHT, easing: 'linear', fill: 'forwards' },
