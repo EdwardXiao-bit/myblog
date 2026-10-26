@@ -59,18 +59,27 @@ for (const el of document.querySelectorAll<HTMLElement>('a[href^="http"], button
 }
 
 // 滚动视差：图片相对页面轻轻移动一点，给出「纸面上的照片」的纵深。
-// 只动 transform，一帧最多算一次；减少动态偏好下完全不动。
-const drifts = Array.from(document.querySelectorAll<HTMLElement>('[data-drift]'));
+// 每帧一次「先读后写」：先把所有 rect 读完，再统一写 transform。
+// 旧版本在同一个循环里交替读写，每个元素都会触发一次强制同步布局（页面上最多 7 次）。
+const drifts = Array.from(document.querySelectorAll<HTMLElement>("[data-drift]"));
 
 if (drifts.length > 0 && !reduceMotion) {
   let queued = false;
+  const rects = new Array<DOMRect>(drifts.length);
 
   const place = () => {
     queued = false;
     const vh = window.innerHeight;
-    for (const el of drifts) {
-      const rect = el.getBoundingClientRect();
-      if (rect.bottom < -80 || rect.top > vh + 80) continue;
+
+    for (let i = 0; i < drifts.length; i++) rects[i] = drifts[i].getBoundingClientRect();
+
+    for (let i = 0; i < drifts.length; i++) {
+      const rect = rects[i];
+      const el = drifts[i];
+      if (rect.bottom < -80 || rect.top > vh + 80) {
+        if (el.style.transform) el.style.transform = "";
+        continue;
+      }
       const mid = rect.top + rect.height / 2;
       const ratio = Math.max(-1, Math.min(1, (mid - vh / 2) / vh));
       el.style.transform = `translate3d(0, ${(-ratio * 18).toFixed(2)}px, 0)`;
@@ -83,9 +92,27 @@ if (drifts.length > 0 && !reduceMotion) {
     requestAnimationFrame(place);
   };
 
-  window.addEventListener('scroll', queue, { passive: true });
-  window.addEventListener('resize', queue, { passive: true });
-  place();
+  window.addEventListener("scroll", queue, { passive: true });
+  window.addEventListener("resize", queue, { passive: true });
+  queue();
+}
+
+// 锚点跳转：平滑只留给「点击页内锚点」这种真实意图。
+// 全局 scroll-behavior: smooth 会让滚轮每一格都变成动画，跟手感全没了。
+if (!reduceMotion) {
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = (event.target as Element | null)?.closest?.('a[href^="#"]');
+    if (!(link instanceof HTMLAnchorElement)) return;
+    const id = link.getAttribute("href")!.slice(1);
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    event.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    history.replaceState(null, "", `#${id}`);
+  });
 }
 
 doc.dataset.motion = reduceMotion ? 'reduce' : 'on';

@@ -111,7 +111,6 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
   scrollbar-gutter: stable;
   /* 浏览器自带的滚动条也属于这套纸：细轨 + 纸色底 + 墨绿拇指 */
   scrollbar-width: thin;
