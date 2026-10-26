@@ -33,7 +33,7 @@ const picks = (await getCollection('projects'))
 const total = (await getCollection('projects')).length;
 ---
 
-<BaseLayout title={`${site.name} · 个人主页`} description={site.description} dotField>
+<BaseLayout title={`${site.name} · 个人主页`} description={site.description}>
   <section class="hero">
     <div class="hero-copy">
       <h1>{site.name}</h1>

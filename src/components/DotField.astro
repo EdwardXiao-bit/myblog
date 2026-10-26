@@ -1,21 +1,20 @@
 ---
-// 首屏点阵：纸面上的点会被鼠标轻轻挤开，松手后带阻尼回到原位。
-// 只在首屏高度内绘制（滚过去就随内容滑走，不参与长页面的渲染预算）；
-// 没有 JS、减少动效、触屏设备这三种情况都不做交互，减少动效直接静态画一次。
-// 其余页面的点阵仍由 body 的静态背景负责，canvas 用同色底遮掉自己覆盖的那一段，
-// 两段点阵的格点对齐（10 + 22k），所以接缝看不出来。
+// 全站点阵：纸面上的点会被鼠标轻轻挤开，松手后带阻尼回到原位。
+// 固定成视口大小的一层垫在所有页面内容下面，滚动时用 transform 平移（不重绘），
+// 所以长页面也只付一块画布的代价；没有 JS / 减少动效 / 触屏都不做交互，
+// 减少动效直接静态画一次。无 JS 时 body 自带同格点的静态点阵兜底。
 ---
 
 <canvas class="dotfield" aria-hidden="true"></canvas>
 
 <style>
   .dotfield {
-    position: absolute;
-    inset: 0 0 auto;
+    position: fixed;
+    inset: 0;
     z-index: 0;
     display: block;
     width: 100%;
-    height: 100svh;
+    height: 100%;
     pointer-events: none;
     background: var(--bg);
   }
@@ -147,12 +146,22 @@
     });
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repaint);
 
+    // 画布固定在视口上，纸面要跟着内容一起走：用 transform 平移一个格距的余数，
+    // 只动合成层、不重绘，滚多长都只是同一块画布。
+    const syncOffset = () => {
+      const offset = window.scrollY % SPACING;
+      canvas.style.transform = `translate3d(0, ${-offset}px, 0)`;
+    };
+    syncOffset();
+
     if (reduce.matches) {
       paint();
+      window.addEventListener('scroll', syncOffset, { passive: true });
     } else {
       window.addEventListener(
         'scroll',
         () => {
+          syncOffset();
           // 滚动期间不重绘：把每一帧的预算留给内容本身，停手后再归位
           scrolling = true;
           window.clearTimeout(scrollTimer);
@@ -168,6 +177,7 @@
         'resize',
         () => {
           build();
+          syncOffset();
           request();
         },
         { passive: true },
