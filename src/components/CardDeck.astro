@@ -201,8 +201,12 @@ const { items } = Astro.props;
     let type: (text: string, i?: number) => void;
     let erase: (done: () => void) => void;
 
+    // 窄屏（手机）上大幅度的旋出/插回会顶到屏幕边缘，改成一次安静地淡出换页
+    const COMPACT = window.matchMedia('(max-width: 640px)').matches;
+    const COMPACT_FLIGHT = 320;
+
     // 题注在翻牌刚开始时就先退格、再打新的一句，和牌的运动重叠，而不是等牌停稳
-    const CAPTION_LEAD = 140;
+    const CAPTION_LEAD = COMPACT ? 60 : 140;
     const beginCaption = () => {
       if (!type || !erase) return;
       erase(() => type(captions[(index + 1) % cards.length]));
@@ -218,7 +222,11 @@ const { items } = Astro.props;
       rest.forEach((card, i) => {
         card.animate(
           [{ transform: stack(i + 1) }, { transform: stack(i) }],
-          { duration: FORWARD, easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)', fill: 'forwards' },
+          {
+            duration: COMPACT ? COMPACT_FLIGHT * 0.9 : FORWARD,
+            easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)',
+            fill: 'forwards',
+          },
         );
       });
 
@@ -258,7 +266,15 @@ const { items } = Astro.props;
       const rise = down
         ? `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY + h * 0.1)}px, 0) rotate(20deg) scale(0.72)`
         : `translate3d(${Math.round(awayX * 0.55)}px, ${Math.round(awayY * 0.55)}px, 0) rotate(26deg) scale(${Math.round(Math.max(0.72, awayScale * 1.3) * 100) / 100})`;
-      const flight = top.animate(
+      const flight = COMPACT
+        ? top.animate(
+            [
+              { opacity: 1, transform: `${stack(0)} translateY(0)`, easing: 'cubic-bezier(0.4, 0, 0.4, 1)', offset: 0 },
+              { opacity: 0, transform: `${stack(0)} translateY(-10px) scale(0.99)`, offset: 1 },
+            ],
+            { duration: COMPACT_FLIGHT, easing: 'linear', fill: 'forwards' },
+          )
+        : top.animate(
         [
           { transform: stack(0), easing: 'cubic-bezier(0.2, 0.84, 0.3, 1)', offset: 0 },
           { transform: `translate3d(${outX}px, ${outY}px, 0) rotate(${rotLift}deg) scale(0.95)`, easing: 'cubic-bezier(0.4, 0.02, 0.4, 1)', offset: 0.16 },
@@ -273,13 +289,14 @@ const { items } = Astro.props;
       // 和飞行同时开始：先退格，再逐字打下一句
       window.setTimeout(beginCaption, CAPTION_LEAD);
 
-      // 这张牌已经完全离开牌堆时才换层，所以遮挡关系的变化看不出来
+      // 桌面：这张牌已经完全离开牌堆时才换层，遮挡关系的变化看不出来
+      // 窄屏：淡出到一半就换层，下面那张自然接上来
       window.setTimeout(() => {
         top.style.zIndex = '0';
         rest.forEach((card, i) => {
           card.style.zIndex = String(rest.length - i);
         });
-      }, INSIDE);
+      }, COMPACT ? COMPACT_FLIGHT / 2 : INSIDE);
 
       const finish = () => {
         for (const card of cards) {
