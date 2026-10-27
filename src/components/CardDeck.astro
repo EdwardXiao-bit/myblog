@@ -201,6 +201,13 @@ const { items } = Astro.props;
     let type: (text: string, i?: number) => void;
     let erase: (done: () => void) => void;
 
+    // 题注在翻牌刚开始时就先退格、再打新的一句，和牌的运动重叠，而不是等牌停稳
+    const CAPTION_LEAD = 140;
+    const beginCaption = () => {
+      if (!type || !erase) return;
+      erase(() => type(captions[(index + 1) % cards.length]));
+    };
+
     const flip = () => {
       if (busy) return;
       busy = true;
@@ -263,6 +270,9 @@ const { items } = Astro.props;
         { duration: FLIGHT, easing: 'linear', fill: 'forwards' },
       );
 
+      // 和飞行同时开始：先退格，再逐字打下一句
+      window.setTimeout(beginCaption, CAPTION_LEAD);
+
       // 这张牌已经完全离开牌堆时才换层，所以遮挡关系的变化看不出来
       window.setTimeout(() => {
         top.style.zIndex = '0';
@@ -283,7 +293,6 @@ const { items } = Astro.props;
         for (const card of cards) card.style.transition = '';
         index = (index + 1) % cards.length;
         busy = false;
-        erase(() => type(captions[index]));
       };
 
       if (reduce) {
