@@ -185,8 +185,18 @@ const { items } = Astro.props;
 
     let order = cards.slice();
     let index = 0;
-    let timer = 0;
+    let timer = 0;       // 下一次翻牌
+    let eraseTimer = 0;  // 退格推进（和翻牌分开，悬停清 timer 时不会误杀退格）
     let busy = false;
+    // 悬停/键盘聚焦只暂停「下一次翻牌」，题注本身的退格与解码照常走完，
+    // 否则在退格途中移入鼠标会把题注停在半截
+    let hovering = false;
+    let erasing = false;
+    const scheduleFlip = (delay = CYCLE) => {
+      window.clearTimeout(timer);
+      if (hovering) return;
+      timer = window.setTimeout(flip, delay);
+    };
 
     const stack = (depth: number) =>
       `translate3d(${depth * 13}px, ${depth * -11}px, 0) rotate(${depth * 2.9}deg) scale(${1 - depth * 0.018})`;
@@ -219,15 +229,15 @@ const { items } = Astro.props;
     const CAPTION_LEAD = COMPACT ? 60 : 140;
     const beginCaption = () => {
       if (!type || !erase) return;
-      erase(() =>
-        type(captions[(index + 1) % cards.length], () => {
-          timer = window.setTimeout(flip, CYCLE);
-        }),
-      );
+      erase(() => type(captions[(index + 1) % cards.length], scheduleFlip));
     };
 
     const flip = () => {
-      if (busy) return;
+      // 上一次翻牌还没收尾就先等一会儿，不能把这次直接丢掉，否则题注会停在半截
+      if (busy) {
+        timer = window.setTimeout(flip, 320);
+        return;
+      }
       busy = true;
       const top = order[0];
       const rest = order.slice(1);
@@ -391,21 +401,10 @@ const { items } = Astro.props;
         frame = requestAnimationFrame(tickFrame);
       };
 
-      const pauseDecode = () => {
-        if (!decoding) return;
-        if (frame) cancelAnimationFrame(frame);
-        frame = 0;
-        last = 0;
-      };
-
-      const resumeDecode = () => {
-        if (!decoding || frame) return;
-        last = 0;
-        frame = requestAnimationFrame(tickFrame);
-      };
-
       type = (text: string, done?: () => void) => {
         window.clearTimeout(timer);
+        window.clearTimeout(eraseTimer);
+        erasing = false;
         if (frame) cancelAnimationFrame(frame);
         frame = 0;
         target = text;
@@ -421,29 +420,27 @@ const { items } = Astro.props;
       erase = (done: () => void) => {
         const current = capText.textContent ?? '';
         if (current.length > 0) {
+          erasing = true;
           capText.textContent = current.slice(0, -1);
-          timer = window.setTimeout(() => erase(done), ERASE);
+          eraseTimer = window.setTimeout(() => erase(done), ERASE);
         } else {
+          erasing = false;
           done();
         }
       };
 
       // 首屏也解一次码，和后面切换时的手感一致
-      type(captions[0], () => {
-        timer = window.setTimeout(flip, CYCLE);
-      });
+      type(captions[0], () => scheduleFlip());
 
       const hold = () => {
+        hovering = true;
         window.clearTimeout(timer);
-        pauseDecode();
       };
       const release = () => {
-        window.clearTimeout(timer);
-        if (decoding) {
-          resumeDecode();
-          return;
-        }
-        timer = window.setTimeout(flip, 1500);
+        hovering = false;
+        // 退格/解码还在走：让它们自己跑完，跑完时再排下一次翻牌
+        if (decoding || erasing) return;
+        if (!busy) scheduleFlip(1500);
       };
       deck.addEventListener('pointerenter', hold);
       deck.addEventListener('pointerleave', release);
