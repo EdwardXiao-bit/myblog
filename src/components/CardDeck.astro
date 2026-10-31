@@ -41,8 +41,10 @@ const { items } = Astro.props;
   </div>
   <figcaption class="deck-cap mono">
     <span class="cap-dot" aria-hidden="true">◤</span>
-    <span class="cap-text" data-deck-text>{items[0].caption}</span>
+    <span class="cap-text" data-deck-text aria-hidden="true">{items[0].caption}</span>
     <span class="cap-caret" data-deck-caret aria-hidden="true"></span>
+    {/* 解码时屏幕上是乱码，读屏要拿到最终那一句 */}
+    <span class="sr-only" data-deck-sr>{items[0].caption}</span>
   </figcaption>
 </figure>
 
@@ -148,6 +150,12 @@ const { items } = Astro.props;
     }
   }
 
+  /* 解码期间光标常亮，像终端正在写；锁定成真字后回到正常闪烁 */
+  .deck-cap.is-decoding .cap-caret {
+    animation: none;
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .deck-card {
       transition: none;
@@ -166,12 +174,14 @@ const { items } = Astro.props;
     const cards = Array.from(deck.querySelectorAll<HTMLAnchorElement>('[data-deck-card]'));
     const figure = deck.closest('figure');
     const capText = figure?.querySelector<HTMLElement>('[data-deck-text]');
+    const capSr = figure?.querySelector<HTMLElement>('[data-deck-sr]');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const captions = cards.map((card) => card.dataset.caption ?? '');
 
     const FLIGHT = 1240;  // 顶牌离开牌堆、再从牌底插回去的总时长
     const FORWARD = 820;  // 下面几张各前进一层
     const INSIDE = 760;   // 时间轴上「拿开停住」那一刻（0.61），此时整张牌与牌堆零重叠
+    const CYCLE = 5000;   // 题注解码完到下一次翻牌之间停留多久
 
     let order = cards.slice();
     let index = 0;
@@ -198,18 +208,22 @@ const { items } = Astro.props;
 
     if (capText) capText.textContent = captions[0];
 
-    let type: (text: string, i?: number) => void;
+    let type: (text: string, done?: () => void) => void;
     let erase: (done: () => void) => void;
 
     // 窄屏（手机）上大幅度的旋出/插回会顶到屏幕边缘，改成一次安静地淡出换页
     const COMPACT = window.matchMedia('(max-width: 640px)').matches;
     const COMPACT_FLIGHT = 320;
 
-    // 题注在翻牌刚开始时就先退格、再打新的一句，和牌的运动重叠，而不是等牌停稳
+    // 题注在翻牌刚开始时就先退格、再解码下一句，和牌的运动重叠，而不是等牌停稳
     const CAPTION_LEAD = COMPACT ? 60 : 140;
     const beginCaption = () => {
       if (!type || !erase) return;
-      erase(() => type(captions[(index + 1) % cards.length]));
+      erase(() =>
+        type(captions[(index + 1) % cards.length], () => {
+          timer = window.setTimeout(flip, CYCLE);
+        }),
+      );
     };
 
     const flip = () => {
@@ -322,17 +336,86 @@ const { items } = Astro.props;
     };
 
     if (!reduce && capText && cards.length > 1) {
-      const CYCLE = 4200;
-      const ERASE = 12;
-      const TYPE = 22;
+      const ERASE = 12;      // 退格速度
+      const STEP = 30;       // 每个字符出现的间隔
+      const SCRAMBLE = 150;  // 每个字符从乱码锁定成真字要跳多久
+      const caption = capText.closest<HTMLElement>('.deck-cap');
 
-      type = (text: string, i = 0) => {
-        capText.textContent = text.slice(0, i);
-        if (i < text.length) {
-          timer = window.setTimeout(() => type(text, i + 1), TYPE);
-        } else {
-          timer = window.setTimeout(flip, CYCLE);
+      // 乱码按「字符类别」挑，宽度才不会跳：汉字位用等宽汉字，其余位用等宽拉丁/数字
+      const CJK_POOL = '龘靐齉爩麤龗灪厵灩鱻龖鸝龢麣爨饢籲纞虋齾甕爝蠡龕鬮籙鑊';
+      const ASCII_POOL = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&@?/<>[]{}$=+-_*';
+      // 按「第几个字 + 第几次跳动」取字符：同一跳里保持不变，下一次跳动才换，像真的在解译
+      const glyphAt = (ch: string, i: number, tick: number) => {
+        if (ch.trim() === '') return ch;
+        const pool = (ch.codePointAt(0) ?? 0) >= 0x2e80 ? CJK_POOL : ASCII_POOL;
+        return pool[((i + 1) * 367 + tick * 89) % pool.length];
+      };
+
+      // 虚拟时钟 + rAF：悬停/聚焦时停表，离开后接着走，不必重建状态
+      let frame = 0;
+      let clock = 0;
+      let last = 0;
+      let decoding = false;
+      let target = '';
+      let startedAt = 0;
+      let settled: (() => void) | null = null;
+
+      const paint = () => {
+        const elapsed = clock - startedAt;
+        const tick = Math.floor(elapsed / STEP);
+        const shown = Math.min(target.length, tick + 1);
+        let out = '';
+        for (let i = 0; i < shown; i += 1) {
+          const ch = target[i];
+          out += elapsed < i * STEP + SCRAMBLE ? glyphAt(ch, i, tick) : ch;
         }
+        capText.textContent = out;
+      };
+
+      const tickFrame = (now: number) => {
+        frame = 0;
+        if (!decoding) return;
+        clock += last ? now - last : 0;
+        last = now;
+        paint();
+        if (clock - startedAt >= target.length * STEP + SCRAMBLE) {
+          decoding = false;
+          capText.textContent = target;
+          if (capSr) capSr.textContent = target;
+          caption?.classList.remove('is-decoding');
+          const done = settled;
+          settled = null;
+          done?.();
+          return;
+        }
+        frame = requestAnimationFrame(tickFrame);
+      };
+
+      const pauseDecode = () => {
+        if (!decoding) return;
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        last = 0;
+      };
+
+      const resumeDecode = () => {
+        if (!decoding || frame) return;
+        last = 0;
+        frame = requestAnimationFrame(tickFrame);
+      };
+
+      type = (text: string, done?: () => void) => {
+        window.clearTimeout(timer);
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        target = text;
+        startedAt = clock;
+        decoding = true;
+        last = 0;
+        settled = done ?? null;
+        caption?.classList.add('is-decoding');
+        paint();
+        frame = requestAnimationFrame(tickFrame);
       };
 
       erase = (done: () => void) => {
@@ -345,11 +428,21 @@ const { items } = Astro.props;
         }
       };
 
-      timer = window.setTimeout(flip, CYCLE);
+      // 首屏也解一次码，和后面切换时的手感一致
+      type(captions[0], () => {
+        timer = window.setTimeout(flip, CYCLE);
+      });
 
-      const hold = () => window.clearTimeout(timer);
+      const hold = () => {
+        window.clearTimeout(timer);
+        pauseDecode();
+      };
       const release = () => {
         window.clearTimeout(timer);
+        if (decoding) {
+          resumeDecode();
+          return;
+        }
         timer = window.setTimeout(flip, 1500);
       };
       deck.addEventListener('pointerenter', hold);
