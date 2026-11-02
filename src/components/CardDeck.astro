@@ -227,9 +227,12 @@ const { items } = Astro.props;
 
     // 题注在翻牌刚开始时就先退格、再解码下一句，和牌的运动重叠，而不是等牌停稳
     const CAPTION_LEAD = COMPACT ? 60 : 140;
-    const beginCaption = () => {
+    // 下一句题注必须在 flip() 一开始就定下来：窄屏换层只要 320ms，
+    // 而退格要几十个字符、耗时更久，等退格结束再读 index 时它已经被 finish() 加过 1，
+    // 会取到再下一张卡的题注（图与字从此错位）。
+    const beginCaption = (text: string) => {
       if (!type || !erase) return;
-      erase(() => type(captions[(index + 1) % cards.length], scheduleFlip));
+      erase(() => type(text, scheduleFlip));
     };
 
     const flip = () => {
@@ -310,8 +313,9 @@ const { items } = Astro.props;
         { duration: FLIGHT, easing: 'linear', fill: 'forwards' },
       );
 
-      // 和飞行同时开始：先退格，再逐字打下一句
-      window.setTimeout(beginCaption, CAPTION_LEAD);
+      // 和飞行同时开始：先退格，再逐字打下一句（句子在这里就锁定）
+      const nextCaption = captions[(index + 1) % cards.length];
+      window.setTimeout(() => beginCaption(nextCaption), CAPTION_LEAD);
 
       // 桌面：这张牌已经完全离开牌堆时才换层，遮挡关系的变化看不出来
       // 窄屏：淡出到一半就换层，下面那张自然接上来
