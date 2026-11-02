@@ -9,6 +9,7 @@ import { isExternal, normalizeHref } from '../utils/link';
 import stopoverArt from '../assets/projects/stopover-gameplay.png';
 import guciArt from '../assets/projects/guci-ui.png';
 import mathegenArt from '../assets/projects/mathegen-ui.png';
+import yunqiArt from '../assets/projects/yunqi-hotel-pms.png';
 
 const socials = site.socials
   .map((s) => ({ ...s, href: normalizeHref(s.href) }))
@@ -58,6 +59,12 @@ const deckItems = [
         },
       ]
     : []),
+  {
+    src: yunqiArt,
+    alt: '云栖酒店 PMS 的经营统计报表：指标卡与四张图表',
+    caption: '云栖酒店 PMS · 2026 秋 · 数据库课程设计',
+    href: '/projects',
+  },
 ];
 
 // 横向栏：最近四场活动
