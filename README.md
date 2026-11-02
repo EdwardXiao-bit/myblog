@@ -68,7 +68,7 @@ flowchart LR
 ### 工程实践
 
 - **构建后自检**：`npm run check:build` 断言内容字段、断链、静态 / SSR 边界；`npm run check:deploy` 校验部署产物。
-- **发布可回滚**：镜像在服务器本地构建，`deploy.sh` 每步失败即退出；发布前后各做一次冒烟（`smoke:prod`）。
+- **发布可回滚**：镜像在服务器本地构建，`deploy.sh` 每步失败即退出；部署结束自动跑一次生产冒烟（`smoke:prod`，含真实写链路）。
 - **备份可验证**：SQLite 与上传目录每日备份，每周做一次恢复演练（建库、跑 `PRAGMA integrity_check`、比对 manifest 与附件）。
 - **可访问性**：移动端 44px 触控目标、系统深浅色跟随、`prefers-reduced-motion` 下降级动效、键盘焦点可见。
 
