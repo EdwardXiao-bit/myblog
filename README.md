@@ -36,7 +36,7 @@
   <a href="https://www.aliyun.com"><img src="https://img.shields.io/badge/Alibaba_Cloud-FF6A00?style=flat&logo=alibabacloud&logoColor=white" alt="Alibaba Cloud" /></a>
   <a href="https://ubuntu.com"><img src="https://img.shields.io/badge/Ubuntu_26.04-E95420?style=flat&logo=ubuntu&logoColor=white" alt="Ubuntu 26.04 LTS" /></a>
   <a href="https://www.docker.com"><img src="https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker" /></a>
-  <a href="https://github.com/deepseek-ai"><img src="https://img.shields.io/badge/DeepSeek_Harness-4D6BFE?style=flat&logo=deepseek&logoColor=white" alt="DeepSeek Harness" /></a>
+  <a href="https://www.deepseek.com/harness/"><img src="https://img.shields.io/badge/DeepSeek_Harness-4D6BFE?style=flat&logo=deepseek&logoColor=white" alt="DeepSeek Harness" /></a>
 </p>
 
 ### 各层选型
