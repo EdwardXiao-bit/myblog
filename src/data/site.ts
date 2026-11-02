@@ -120,6 +120,6 @@ export const site: SiteConfig = {
   skills: ['AI Agent', 'C++', 'Unity', 'JavaScript', 'PyTorch', 'WebGL', 'Astro'],
 
   // 大陆服务器备案通过后填这里，页脚会自动多一行；不备案就留空字符串。
-  icp: '',
+  icp: '渝ICP备2026027564号',
   police: '',
 };
