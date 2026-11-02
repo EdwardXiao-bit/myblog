@@ -25,7 +25,7 @@
 
 <p align="left">
   <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white" alt="SQLite" /></a>
-  <a href="https://sharp.pixelplumbing.com"><img src="https://img.shields.io/badge/sharp-99CC00?style=flat" alt="sharp" /></a>
+  <a href="https://sharp.pixelplumbing.com"><img src="https://img.shields.io/badge/sharp-99CC00?style=flat&logo=sharp&logoColor=white" alt="sharp" /></a>
   <a href="https://caddyserver.com"><img src="https://img.shields.io/badge/Caddy_2-1F8B84?style=flat&logo=caddy&logoColor=white" alt="Caddy 2" /></a>
   <a href="https://letsencrypt.org"><img src="https://img.shields.io/badge/Let%27s_Encrypt-003A70?style=flat&logo=letsencrypt&logoColor=white" alt="Let's Encrypt" /></a>
 </p>
