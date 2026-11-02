@@ -41,3 +41,10 @@
 		format console
 	}
 }
+
+# 直接拿 IP 当 Host 访问 80 端口 → 403。
+# 否则访客会被 308 到 https://<IP>，撞上证书不匹配的报错页。
+# 服务器公网 IP 变了就改这里的默认值，或设 SERVER_IP 环境变量。
+http://{$SERVER_IP:8.137.154.34} {
+	respond "请用 https://edwardxiao.space 访问" 403
+}
