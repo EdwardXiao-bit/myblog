@@ -2,6 +2,14 @@
 
 用 Astro 搭的个人主页：个人简介、项目、活动照片、留言板与日记。
 
+## 本站已上线
+
+<p align="left">
+  <a href="https://edwardxiao.space" target="blank">
+  <img align="center" src="https://img.shields.io/badge/edwardxiao.space-0e75b6?style=flat&logo=googlechrome&logoColor=white" alt="edwardxiao.space" />
+</a>
+</p>
+
 ## 怎么跑起来
 
 ```bash
