@@ -10,6 +10,68 @@
 </a>
 </p>
 
+## 技术栈
+
+**站点框架 / 语言**
+
+<p align="left">
+  <a href="https://astro.build"><img src="https://img.shields.io/badge/Astro_7-FF5D01?style=flat&logo=astro&logoColor=white" alt="Astro 7" /></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js_24-5FA04E?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js 24" /></a>
+  <a href="https://developer.mozilla.org/docs/Web/CSS"><img src="https://img.shields.io/badge/CSS-663399?style=flat&logo=css&logoColor=white" alt="CSS" /></a>
+</p>
+
+**数据 / 服务**
+
+<p align="left">
+  <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white" alt="SQLite" /></a>
+  <a href="https://sharp.pixelplumbing.com"><img src="https://img.shields.io/badge/sharp-99CC00?style=flat" alt="sharp" /></a>
+  <a href="https://caddyserver.com"><img src="https://img.shields.io/badge/Caddy_2-1F8B84?style=flat&logo=caddy&logoColor=white" alt="Caddy 2" /></a>
+  <a href="https://letsencrypt.org"><img src="https://img.shields.io/badge/Let%27s_Encrypt-003A70?style=flat&logo=letsencrypt&logoColor=white" alt="Let's Encrypt" /></a>
+</p>
+
+**部署 / 工具**
+
+<p align="left">
+  <a href="https://www.aliyun.com"><img src="https://img.shields.io/badge/Alibaba_Cloud-FF6A00?style=flat&logo=alibabacloud&logoColor=white" alt="Alibaba Cloud" /></a>
+  <a href="https://ubuntu.com"><img src="https://img.shields.io/badge/Ubuntu_26.04-E95420?style=flat&logo=ubuntu&logoColor=white" alt="Ubuntu 26.04 LTS" /></a>
+  <a href="https://www.docker.com"><img src="https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://github.com/deepseek-ai"><img src="https://img.shields.io/badge/DeepSeek_Harness-4D6BFE?style=flat&logo=deepseek&logoColor=white" alt="DeepSeek Harness" /></a>
+</p>
+
+### 各层选型
+
+| 层 | 选型 | 这么选的原因 |
+| --- | --- | --- |
+| 渲染 | Astro 7：默认 `static`，按页开启 SSR | 首页、项目、活动、404 全部构建成静态 HTML；只有留言板 / 管理页 / API 走服务端 |
+| 语言 | TypeScript + 原生 JavaScript、CSS、Markdown | 内容用 Markdown 维护，脚本与数据层用 TS，样式用 CSS 自定义属性（无 CSS 框架） |
+| 内容 | Content Collections + Zod Schema | 项目与活动字段在 `src/content.config.ts` 里约束，写错在构建期就报错 |
+| 图片 | sharp | 照片上传后自动压成 WebP、按宽度出多尺寸并懒加载；中文 `og:image` 也是构建时用 SVG + sharp 画的 |
+| 数据 | SQLite（Node 24 内置 `node:sqlite`） | 单文件、零原生依赖、无 ORM；备份就是拷 `data/guestbook.db` 与 `data/uploads` |
+| 服务端 | `@astrojs/node`（standalone） | 产物是 `dist/server/entry.mjs`，一个 Node 进程即可运行，镜像里不需要额外服务 |
+| 反向代理 | Caddy 2 | 自动签发 / 续期 Let's Encrypt 证书、HTTP 自动 308 跳 HTTPS、gzip + zstd 压缩，配置不到 40 行 |
+| 部署 | Docker Compose + 阿里云 ECS（Ubuntu 26.04 LTS） | `deploy.sh` 一键 pull → 构建 → 起容器 → 冒烟自检 → 备份并做恢复演练，任一步失败即中止 |
+| 安全 | 云安全组 + UFW、蜜罐字段、IP 限流、HttpOnly 会话 Cookie、留言先审后发 | 匿名留言不收集邮箱；刷屏、撞库、伪造 IP 三条路分别用限流、会话与真实 IP 覆盖堵住 |
+| 开发方式 | DeepSeek Harness（AI 结对） | 设计、实现、评审、部署都在对话里推进；动效与文案先 `/grill-me` 把需求问清再动代码 |
+
+### 一次请求怎么走
+
+```mermaid
+flowchart LR
+  U[访客浏览器] -->|443 HTTPS| C[Caddy 2<br/>证书 / 压缩 / 跳转]
+  C -->|反代到 4321| A[Astro standalone<br/>静态页 + 按需 SSR]
+  A -->|读写| D[(data/guestbook.db<br/>node:sqlite)]
+  A -->|读文件| P[data/uploads<br/>WebP 多尺寸]
+  A -->|静态资产| S[dist/client<br/>内容哈希长缓存]
+```
+
+### 工程实践
+
+- **构建后自检**：`npm run check:build` 断言内容字段、断链、静态 / SSR 边界；`npm run check:deploy` 校验部署产物。
+- **发布可回滚**：镜像在服务器本地构建，`deploy.sh` 每步失败即退出；发布前后各做一次冒烟（`smoke:prod`）。
+- **备份可验证**：SQLite 与上传目录每日备份，每周做一次恢复演练（建库、跑 `PRAGMA integrity_check`、比对 manifest 与附件）。
+- **可访问性**：移动端 44px 触控目标、系统深浅色跟随、`prefers-reduced-motion` 下降级动效、键盘焦点可见。
+
 ## 怎么跑起来
 
 ```bash
