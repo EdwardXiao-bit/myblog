@@ -21,7 +21,11 @@ const { entry, back } = Astro.props;
     aria-pressed={entry.likedByMe ? 'true' : 'false'}
     title={entry.likedByMe ? '再点一下取消' : '点个赞'}
   >
-    <span aria-hidden="true">♥</span><!-- taste-skill-ignore: ♥ 是点赞按钮里的图形符号，不是 emoji 图标替代 -->
+    <svg class="like-heart" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+      <path
+        d="M8 13.6 2.6 8.4a3.4 3.4 0 0 1 0-4.9 3.5 3.5 0 0 1 4.9 0L8 4l.5-.5a3.5 3.5 0 0 1 4.9 0 3.4 3.4 0 0 1 0 4.9Z"
+        fill="currentColor"></path>
+    </svg>
     <span class="like-count">{entry.likeCount}</span>
   </button>
 </form>
@@ -65,12 +69,84 @@ const { entry, back } = Astro.props;
     background: var(--accent-soft);
   }
 
+  .like-heart {
+    flex: none;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .like button:hover .like-heart,
+  .like button.liked .like-heart {
+    transform: scale(1.12);
+  }
+
   .like-count {
     font-variant-numeric: tabular-nums;
   }
 </style>
 
 <script>
+  // 点赞成功时撒一次纸屑。这是 StyleKit editorial 明确禁止的「彩色装饰」，
+  // 这里是有意例外：只有「未赞 → 点赞成功」这一下，取消不撒。
+  const CONFETTI = ['#1f6a58', '#3f8f78', '#c9a227', '#a8422f', '#f2e7c9'];
+
+  function burst(button: HTMLButtonElement) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      button.animate(
+        [
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.12)' },
+          { transform: 'scale(1)' },
+        ],
+        { duration: 220, easing: 'ease-out' },
+      );
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + 2;
+    const count = window.matchMedia('(pointer: coarse)').matches ? 12 : 24;
+
+    const layer = document.createElement('div');
+    layer.style.cssText =
+      'position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:80;';
+    document.body.appendChild(layer);
+
+    for (let i = 0; i < count; i += 1) {
+      const bit = document.createElement('span');
+      const w = 4 + Math.random() * 5;
+      bit.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;width:${w}px;height:${
+        w * (0.6 + Math.random() * 0.8)
+      }px;background:${CONFETTI[i % CONFETTI.length]};border-radius:1px;will-change:transform,opacity;`;
+      layer.appendChild(bit);
+
+      const dx = (Math.random() - 0.5) * 210;
+      const dx2 = dx * (1.15 + Math.random() * 0.35);
+      const dy = 120 + Math.random() * 120;
+      const rot = (Math.random() - 0.5) * 900;
+
+      bit
+        .animate(
+          [
+            { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
+            {
+              transform: `translate(calc(-50% + ${dx * 0.55}px), calc(-50% - ${28 + Math.random() * 26}px)) rotate(${rot * 0.28}deg)`,
+              opacity: 1,
+              offset: 0.26,
+            },
+            {
+              transform: `translate(calc(-50% + ${dx2}px), calc(-50% + ${dy}px)) rotate(${rot}deg)`,
+              opacity: 0,
+            },
+          ],
+          { duration: 780 + Math.random() * 360, easing: 'cubic-bezier(0.22,0.68,0.3,1)', fill: 'forwards' },
+        )
+        .finished.then(() => bit.remove());
+    }
+
+    window.setTimeout(() => layer.remove(), 1200);
+  }
+
   for (const form of document.querySelectorAll<HTMLFormElement>('form[data-like]')) {
     if (form.dataset.wired) continue;
     form.dataset.wired = '1';
@@ -89,11 +165,13 @@ const { entry, back } = Astro.props;
         if (!res.ok) throw new Error(String(res.status));
 
         const data = (await res.json()) as { count: number; liked: boolean };
+        const wasLiked = button.classList.contains('liked');
         const count = button.querySelector('.like-count');
         if (count) count.textContent = String(data.count);
         button.classList.toggle('liked', data.liked);
         button.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
         button.title = data.liked ? '再点一下取消' : '点个赞';
+        if (data.liked && !wasLiked) burst(button);
       } catch {
         // 出问题就退回普通表单提交，至少让用户能点上
         form.submit();

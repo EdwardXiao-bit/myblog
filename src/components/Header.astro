@@ -26,7 +26,7 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
           nav.map((item) => (
             <li>
               <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
-                {item.label}
+                <span class="nav-label">{item.label}</span>
               </a>
             </li>
           ))
@@ -101,11 +101,35 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     transition: color var(--dur-2) var(--ease-out);
   }
 
-  .nav a::after {
+  /* 线挂在文字本身上（不是 44px 命中区的底边），否则会落到 header 底缘像分隔线 */
+  .nav-label {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* hover 绘入：1px accent 从左向右展开，500ms（StyleKit editorial 的下划线配方） */
+  .nav-label::before {
     content: '';
     position: absolute;
-    inset-inline: 10px;
-    bottom: 0;
+    inset-inline: 0;
+    bottom: -5px;
+    height: 1px; /* taste-skill-ignore: 导航下划线是 hover 绘入效果的图形本体（1px 线），不是分隔线 */
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 500ms var(--ease-out);
+  }
+
+  .nav a:hover .nav-label::before,
+  .nav a:focus-visible .nav-label::before {
+    transform: scaleX(1);
+  }
+
+  .nav-label::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: -5px;
     height: 2px;
     background: transparent;
     transition: background-color var(--dur-2) var(--ease-out);
@@ -119,7 +143,7 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     color: var(--text);
   }
 
-  .nav a[aria-current='page']::after {
+  .nav a[aria-current='page'] .nav-label::after {
     background: var(--accent);
   }
 
@@ -131,10 +155,6 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     .nav a {
       padding-inline: 7px;
       font-size: 0.8125rem;
-    }
-
-    .nav a::after {
-      inset-inline: 7px;
     }
   }
 </style>

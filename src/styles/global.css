@@ -50,6 +50,7 @@
   --dur-1: 120ms;
   --dur-2: 200ms;
   --dur-3: 460ms;
+  --btn-glow: color-mix(in srgb, var(--accent) 58%, transparent);
 
   /* 旧组件还在用的别名：新令牌名是 --line / --line-strong */
   --border: var(--line);
@@ -370,12 +371,24 @@ main {
   font-size: 0.8125rem;
   line-height: 1.4;
   cursor: pointer;
-  transition: background-color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .btn:hover {
   background: var(--accent-hover);
   color: var(--on-accent);
+}
+
+/* 悬浮发光：这是 StyleKit editorial 明确禁止的 shadow/glow，这里是有意为例外——
+   按钮是全站唯一的「可按下」实体，用一层 accent 柔光把可点性说清楚，别的地方不加光。 */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 20px 3px var(--btn-glow); /* taste-skill-ignore: 悬浮发光是这轮明确要求的例外效果，只在 hover 出现 */
+  }
 }
 
 .btn:active {
@@ -579,6 +592,15 @@ html.js .reveal.is-in {
 
   .status .out::after {
     animation: none;
+  }
+
+  /* 悬停发光与下划线绘入不做位移/展开动画，但仍给出状态变化 */
+  .btn:hover {
+    transform: none;
+  }
+
+  .nav a::before {
+    transition: none;
   }
 
   *,

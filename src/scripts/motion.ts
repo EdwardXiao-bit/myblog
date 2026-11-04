@@ -36,6 +36,9 @@ if (!('IntersectionObserver' in window) || reduceMotion) {
   for (const el of targets) io.observe(el);
 
   // 首屏元素不等滚动，直接播（用户已经看到它们了）
+  // 先强制一次样式计算，确保浏览器已经把「.reveal 的隐藏态」算进去；
+  // 否则同一帧里加 .reveal 又加 .is-in，过渡会被跳过，进场动效变成瞬现。
+  void getComputedStyle(targets[0] ?? document.body).opacity;
   requestAnimationFrame(() => {
     for (const el of targets) {
       const rect = el.getBoundingClientRect();
