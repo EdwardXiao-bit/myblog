@@ -4,6 +4,7 @@ import { Image } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import CardDeck from '../components/CardDeck.astro';
 import ActivityRail from '../components/ActivityRail.astro';
+import ContributionGrid from '../components/ContributionGrid.astro';
 import { site } from '../data/site';
 import { isExternal, normalizeHref } from '../utils/link';
 import stopoverArt from '../assets/projects/stopover-gameplay.png';
@@ -127,6 +128,8 @@ const total = (await getCollection('projects')).length;
       <CardDeck items={deckItems} />
     </div>
   </section>
+
+  <ContributionGrid />
 
   {
     recent.length > 0 && (

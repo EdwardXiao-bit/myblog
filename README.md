@@ -71,6 +71,7 @@ flowchart LR
 - **发布可回滚**：镜像在服务器本地构建，`deploy.sh` 每步失败即退出；部署结束自动跑一次生产冒烟（`smoke:prod`，含真实写链路）。
 - **备份可验证**：SQLite 与上传目录每日备份，每周做一次恢复演练（建库、跑 `PRAGMA integrity_check`、比对 manifest 与附件）。
 - **可访问性**：移动端 44px 触控目标、系统深浅色跟随、`prefers-reduced-motion` 下降级动效、键盘焦点可见。
+- **贡献格子每天自己更新**：`.github/workflows/contributions.yml` 每天 03:17 UTC 跑 `scripts/fetch-contributions.mjs`，把过去一年（含私有仓库）的贡献写进 `src/data/contributions.json` 并在有变化时提交；首页「提交记录」读这份 JSON 渲染，深色模式有独立配色，悬停显示「M 月 D 日 · N 次提交」。
 
 ## 怎么跑起来
 

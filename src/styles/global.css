@@ -37,6 +37,13 @@
   /* 网格 */
   --grid-dot: rgba(24, 30, 16, 0.34);
 
+  /* GitHub 贡献格子：0 到 4 级，从底色渐变到 accent */
+  --contrib-0: #e2e3da;
+  --contrib-1: #c3dbd1;
+  --contrib-2: #97c5b4;
+  --contrib-3: #5aa38a;
+  --contrib-4: #1f6a58;
+
   /* 尺寸 */
   --maxw: 1040px;
   --gutter: clamp(18px, 5vw, 32px);
@@ -73,6 +80,13 @@
   --accent-hover: #95d8c3;
   --accent-soft: rgb(116 195 171 / 0.14);
   --grid-dot: rgba(236, 232, 220, 0.36);
+
+  /* 深色下的贡献格子：从近底色到发光绿 */
+  --contrib-0: #262a22;
+  --contrib-1: #2f443b;
+  --contrib-2: #3d6a5a;
+  --contrib-3: #52997f;
+  --contrib-4: #74c3ab;
   --danger: #e79a83;
 
   color-scheme: dark;
@@ -94,6 +108,13 @@
     --accent-hover: #95d8c3;
     --accent-soft: rgb(116 195 171 / 0.14);
     --grid-dot: rgba(236, 232, 220, 0.36);
+
+  /* 深色下的贡献格子：从近底色到发光绿 */
+  --contrib-0: #262a22;
+  --contrib-1: #2f443b;
+  --contrib-2: #3d6a5a;
+  --contrib-3: #52997f;
+  --contrib-4: #74c3ab;
     --danger: #e79a83;
 
     color-scheme: dark;

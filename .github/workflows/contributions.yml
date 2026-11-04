@@ -1,0 +1,44 @@
+name: 更新贡献数据
+
+on:
+  schedule:
+    # 每天 03:17 UTC（北京时间 11:17）跑一次
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: contributions
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 有 GH_CONTRIB_TOKEN（classic PAT，勾 read:user）时能读到私有仓库的贡献；
+      # 没有就退回公开接口，只统计公开贡献。
+      - name: 拉取过去一年的贡献
+        run: node scripts/fetch-contributions.mjs
+        env:
+          GH_CONTRIB_TOKEN: ${{ secrets.GH_CONTRIB_TOKEN }}
+          GH_LOGIN: ${{ vars.GH_LOGIN || 'EdwardXiao-bit' }}
+
+      - name: 有变化就提交
+        run: |
+          if git diff --quiet -- src/data/contributions.json; then
+            echo "贡献数据没有变化，跳过提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/contributions.json
+          git commit -m "chore(contributions): 更新 GitHub 贡献数据"
+          git push
