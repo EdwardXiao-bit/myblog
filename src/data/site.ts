@@ -6,6 +6,8 @@
 export interface SocialLink {
   label: string;
   href: string;
+  /** 按钮上的小图标，目前只做了 github / email 两种 */
+  icon?: 'github' | 'email';
 }
 
 export interface ExperienceItem {
@@ -37,6 +39,8 @@ export interface SiteConfig {
   tagline: string;
   /** 首屏的状态行：机器说的话，放在 tagline 下面（等宽字体） */
   status: string;
+  /** 首屏 slogan 窗口轮播的句子（伪指令；双引号内的部分会用 accent 色渲染） */
+  slogans?: string[];
   /** SEO 描述 */
   description: string;
   /** 头像路径，例如 '/avatar.jpg' 并把图片放进 public/；留空则用名字首字生成 */
@@ -64,14 +68,31 @@ export const site: SiteConfig = {
   name: 'EdwardXiao',                                // ← 站点名：浏览器标签、左上角、页脚都用它
   tagline: '写工具，也把古陶瓷碎片拼回三维。',          // ← 改成你的签名
   status: '现在给 DeepSeek Harness 写插件',            // ← 首屏状态行，一句话说正在做什么
+  slogans: [                                          // ← 首屏窗口轮播的句子：伪指令，双引号内的部分会用 accent 色
+    'npm run 写插件 -- "--现在"',
+    'git commit -m "先提交再想"',
+    'sudo 熬夜 "--直到跑通"',
+    'rm -rf node_modules && npm i',
+    'curl 灵感 -o "idea.md"',
+    'grep -rn "TODO" . | wc -l',
+    'git stash list "--全是没做完的"',
+    'npm run 小工具 -- "--给同学用"',
+    'make 课设 -j4',
+    'git diff "两天前的自己"',
+    'tail -f "灵感.log"',
+    'tar -czf "这学期.tar.gz" 作业/',
+    'chmod +x "新想法.sh" && ./新想法.sh',
+    'ssh edward "--周末也在写"',
+    'git status "正在找点事做"',
+  ],
   description: 'EdwardXiao 的个人主页：简介、项目、活动与留言板。',
   avatar: '/avatar.jpg',                               // ← 把图片放到 public/avatar.jpg 即可；没有文件时自动用名字首字
   location: '中国 · 成都',                              // ← 改成你的城市
   email: '1062355602@qq.com',                            // ← 改成你的邮箱
 
   socials: [
-    { label: 'GitHub', href: 'https://github.com/EdwardXiao-bit' },
-    { label: 'Email', href: 'mailto:1062355602@qq.com' },
+    { label: 'GitHub', href: 'https://github.com/EdwardXiao-bit', icon: 'github' },
+    { label: 'Email', href: 'mailto:1062355602@qq.com', icon: 'email' },
     // { label: 'X', href: 'https://x.com/yourname' },
   ],
 

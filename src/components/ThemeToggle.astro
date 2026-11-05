@@ -1,6 +1,6 @@
 ---
 /**
- * 主题切换：默认跟随系统，点一下才写入明确偏好并记住。
+ * 主题切换：默认夜间，点一下切到白天并记住；只有手动选过才跟随记忆。
  */
 ---
 
@@ -81,17 +81,7 @@
     display: none;
   }
 
-  /* 系统深色且用户没手动选浅色 */
-  @media (prefers-color-scheme: dark) {
-    :global(:root:not([data-theme='light'])) .icon-sun {
-      display: block;
-    }
-    :global(:root:not([data-theme='light'])) .icon-moon {
-      display: none;
-    }
-  }
-
-  /* 用户手动选了深色（放在媒体查询之后，优先级相同时后者生效） */
+  /* 夜间是默认主题：首帧脚本总会写 data-theme，这里只认这个属性 */
   :global(:root[data-theme='dark']) .icon-sun {
     display: block;
   }
@@ -105,12 +95,12 @@
 
   btn?.addEventListener('click', () => {
     const root = document.documentElement;
-    const isDark =
-      root.dataset.theme === 'dark' ||
-      (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const isDark = root.dataset.theme !== 'light';
 
     const next = isDark ? 'light' : 'dark';
     root.dataset.theme = next;
+    const meta = document.getElementById('theme-color');
+    if (meta) meta.content = next === 'dark' ? '#121310' : '#e9eae5';
     try {
       localStorage.setItem('theme', next);
     } catch {

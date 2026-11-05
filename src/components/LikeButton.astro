@@ -54,13 +54,21 @@ const { entry, back } = Astro.props;
     transition:
       color var(--dur-2) var(--ease-out),
       border-color var(--dur-2) var(--ease-out),
-      background-color var(--dur-2) var(--ease-out);
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
   }
 
   .like button:hover {
     color: var(--accent);
     border-color: var(--line-strong);
     background: var(--bg-sunken);
+  }
+
+  /* 和 .btn 同一层光晕，只是小一号：可点的控件在 hover 时都要亮一下 */
+  @media (hover: hover) and (pointer: fine) {
+    .like button:hover {
+      box-shadow: var(--glow-sm);
+    }
   }
 
   .like button.liked {

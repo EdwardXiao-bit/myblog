@@ -67,13 +67,21 @@ const emojis = [
     transition:
       color var(--dur-2) var(--ease-out),
       border-color var(--dur-2) var(--ease-out),
-      background-color var(--dur-2) var(--ease-out);
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
   }
 
   .tool:hover {
     border-color: var(--line-strong);
     background: var(--bg-sunken);
     color: var(--text);
+  }
+
+  /* 和 .btn 同一层光晕，只是小一号；面板里的表情格子不加，见 ReactionBar 的同一注释 */
+  @media (hover: hover) and (pointer: fine) {
+    .tool:hover {
+      box-shadow: var(--glow-sm);
+    }
   }
 
   .emoji-panel {

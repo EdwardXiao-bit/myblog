@@ -33,10 +33,10 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="generator" content={Astro.generator} />
 
-    <meta name="theme-color" content="#e9eae5" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121310" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" id="theme-color" content="#121310" />
 
     <meta property="og:type" content={ogType} />
     <meta property="og:title" content={title} />
@@ -52,13 +52,16 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? Astro.url);
     <link rel="alternate" type="application/rss+xml" title={`${site.name} · 订阅`} href="/rss.xml" />
 
     <script is:inline>
-      // 首帧前定两件事：① 已保存的主题，避免深色模式闪白；
+      // 首帧前定两件事：① 主题（默认夜间，只有手动选过浅色才跟随记忆），避免闪白；
       // ② 标记 js 可用，进场动效只在有脚本时才隐藏内容（无脚本时全部直接可见）。
       (function () {
         document.documentElement.classList.add('js');
         try {
           var t = localStorage.getItem('theme');
-          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+          var theme = t === 'light' || t === 'dark' ? t : 'dark';
+          document.documentElement.dataset.theme = theme;
+          var meta = document.getElementById('theme-color');
+          if (meta) meta.content = theme === 'light' ? '#e9eae5' : '#121310';
         } catch (e) {}
       })();
     </script>

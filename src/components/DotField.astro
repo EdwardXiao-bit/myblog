@@ -31,6 +31,10 @@
     const SPRING = 0.18;
     const DAMPING = 0.78;
 
+    // 指针光晕：半径和点被推开的范围一致，光就落在点让出来的空处；
+    // 并且先画光、后画点，点压在光上面，点阵的层次不会被光洗掉。
+    const AURA = RADIUS;
+
     type Dot = { ox: number; oy: number; x: number; y: number; vx: number; vy: number };
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -41,12 +45,25 @@
     let height = 0;
     let raf = 0;
     let pointer: { x: number; y: number } | null = null;
+    let auraInk: { rgb: string; core: string; mid: string } | null = null;
     let scrolling = false;
     let scrollTimer = 0;
 
     const ink = () => {
       const value = getComputedStyle(document.documentElement).getPropertyValue('--grid-dot').trim();
       return value || 'rgba(24, 30, 16, 0.16)';
+    };
+
+    // 光晕的颜色交给 CSS 令牌，明暗两套主题各自给 rgb 和两级透明度
+    const aura = () => {
+      if (auraInk) return auraInk;
+      const style = getComputedStyle(document.documentElement);
+      auraInk = {
+        rgb: style.getPropertyValue('--aura-rgb').trim() || '255 255 255',
+        core: style.getPropertyValue('--aura-core').trim() || '0.78',
+        mid: style.getPropertyValue('--aura-mid').trim() || '0.2',
+      };
+      return auraInk;
     };
 
     const build = () => {
@@ -83,6 +100,19 @@
       const px = pointer?.x ?? 0;
       const py = pointer?.y ?? 0;
       let settled = true;
+
+      // 先铺光，再点墨点：光在纸面，点在纸上，点不会被光洗淡
+      // 光不插值，直接落在指针上（要跟手，不要拖影）
+      if (pointer) {
+        const a = aura();
+        const gradient = ctx.createRadialGradient(px, py, 0, px, py, AURA);
+        gradient.addColorStop(0, `rgb(${a.rgb} / ${a.core})`);
+        gradient.addColorStop(0.55, `rgb(${a.rgb} / ${a.mid})`);
+        gradient.addColorStop(1, `rgb(${a.rgb} / 0)`);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(px - AURA, py - AURA, AURA * 2, AURA * 2);
+        ctx.fillStyle = ink();
+      }
 
       for (const dot of dots) {
         let near = false;
@@ -137,6 +167,7 @@
 
     // 主题切换时点阵的墨色要跟着换：canvas 只在需要时重绘，不跟着 CSS 变。
     const repaint = () => {
+      auraInk = null; // 明暗切换后重新读一次光晕令牌
       if (reduce.matches) paint();
       else request();
     };

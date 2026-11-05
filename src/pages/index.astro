@@ -16,6 +16,9 @@ const socials = site.socials
   .map((s) => ({ ...s, href: normalizeHref(s.href) }))
   .filter((s) => s.href.length > 0);
 
+// 首屏 slogan 窗口：几条短句轮着走，没配置就退回单条 status
+const slogans = site.slogans?.length ? site.slogans : [site.status];
+
 // 首屏右侧：四张真实作品/活动图轮播（抽牌式），题注按终端打字机走
 const newest = (await getCollection('activities')).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
@@ -95,11 +98,22 @@ const total = (await getCollection('projects')).length;
       <h1 data-reveal>{site.name}</h1>
       <p class="lead" data-reveal>在川大读计算机，大三。作业、课设、小工具都是自己 vibe coding 出来的，做完就发到这个站上。</p>
 
-      <p class="status" data-reveal>
-        <span class="prompt" aria-hidden="true">$</span>
-        <span class="cmd">now</span>
-        <span class="out">{site.status}</span>
-      </p>
+      <div class="win-magnet" data-magnet>
+        <div class="win" data-slogan tabindex="0" role="button" aria-label="正在做的事；点击看下一句" data-reveal>
+          <div class="win-bar" aria-hidden="true">
+            <span class="win-dots"><i></i><i></i><i></i></span>
+            <span class="win-path">~/now</span>
+          </div>
+          <div class="win-body">
+            <span class="win-prompt" aria-hidden="true">$</span>
+            <span class="win-frame">
+              <span class="win-line" data-slogan-line>{slogans[0]}</span>
+              <span class="win-caret" data-slogan-caret aria-hidden="true"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+      <script type="application/json" id="slogan-data" set:html={JSON.stringify(slogans)}></script>
 
       <div class="actions" data-reveal>
         <a class="btn" href="/projects">看我的项目</a>
@@ -111,8 +125,32 @@ const total = (await getCollection('projects')).length;
               target={isExternal(s.href) ? '_blank' : undefined}
               rel="me noopener"
             >
+              {s.icon === 'github' && (
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.5-1.4-1.9-1.4-1.9-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"
+                  />
+                </svg>
+              )}
+              {s.icon === 'email' && (
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="2.5" y="5" width="19" height="14" rx="2.2" />
+                  <path d="m3.4 6.8 8.6 5.6 8.6-5.6" />
+                </svg>
+              )}
               {s.label}
-              <span class="arrow" aria-hidden="true">↗</span>
+              {!s.icon && <span class="arrow" aria-hidden="true">↗</span>}
             </a>
           ))
         }
@@ -127,9 +165,11 @@ const total = (await getCollection('projects')).length;
     <div class="hero-art" data-reveal>
       <CardDeck items={deckItems} />
     </div>
-  </section>
 
-  <ContributionGrid />
+    <div class="hero-contrib" data-reveal>
+      <ContributionGrid />
+    </div>
+  </section>
 
   {
     recent.length > 0 && (
@@ -234,6 +274,227 @@ const total = (await getCollection('projects')).length;
       </div>
     </div>
   </section>
+
+  <script>
+    // slogan 窗口：细光标扫过 → 文字跟着光标显出 → 停几秒 → 光标扫回、文字被一路擦掉 → 下一句。
+    // 扫描速度按行宽算（≈0.5px/ms），长短句打起来一样快；点一下窗口可以跳到下一条。
+    // 双引号里的片段渲染成 accent 色（伪指令的参数）；reduced-motion 下只静态显示第一句。
+    const win = document.querySelector('[data-slogan]');
+    const data = document.getElementById('slogan-data');
+    if (win && data) {
+      const lines = JSON.parse(data.textContent || '[]');
+      const line = win.querySelector('[data-slogan-line]');
+      const caret = win.querySelector('[data-slogan-caret]');
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const HOLD = 4200;
+      const GAP = 80;
+      const SPEED = 0.5; // px/ms：430px 的长句约 860ms，235px 的短句约 470ms
+      const REWIND_RATIO = 1.7; // 光标回退比入场快这么多倍
+      let revealMs = 620;
+      let rewindMs = 360;
+      let index = 0;
+      let revealTimer = 0;
+      let advanceTimer = 0;
+      let busy = false;
+
+      const esc = (text) =>
+        text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      // 双引号包住的片段 → accent 色的参数
+      const render = (text) =>
+        text
+          .split('"')
+          .map((part, i) => (i % 2 ? `<span class="win-arg">${esc(part)}</span>` : esc(part)))
+          .join('"');
+
+      const width = () => line.getBoundingClientRect().width;
+      const park = () => {
+        caret.style.left = width() + 'px';
+      };
+
+      const show = () => {
+        line.innerHTML = render(lines[index]);
+        line.classList.remove('is-out', 'is-in');
+        caret.classList.remove('is-idle');
+        win.classList.remove('is-holding');
+        caret.style.transition = 'none';
+        caret.style.left = '0px';
+        void line.offsetWidth;
+
+        // 按这一行的实际宽度定扫描时长，长度不同的句子打字速度才一致
+        const w = width();
+        revealMs = Math.round(Math.min(1300, Math.max(340, w / SPEED)));
+        rewindMs = Math.max(220, Math.round(revealMs / REWIND_RATIO));
+        const ease = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+        line.style.transition = `clip-path ${revealMs}ms ${ease}`;
+        caret.style.transition = `left ${revealMs}ms ${ease}`;
+        line.classList.add('is-in');
+        park();
+        revealTimer = window.setTimeout(() => {
+          win.classList.add('is-holding');
+          caret.classList.add('is-idle');
+          park();
+        }, revealMs);
+        advanceTimer = window.setTimeout(next, revealMs + HOLD);
+      };
+
+      const next = () => {
+        window.clearTimeout(advanceTimer);
+        window.clearTimeout(revealTimer);
+        caret.classList.remove('is-idle');
+        win.classList.remove('is-holding');
+        line.style.transition = `clip-path ${rewindMs}ms linear`;
+        line.classList.remove('is-in');
+        line.classList.add('is-out');
+        caret.style.transition = `left ${rewindMs}ms linear`;
+        caret.style.left = '0px';
+        window.setTimeout(() => {
+          index = (index + 1) % lines.length;
+          window.setTimeout(show, GAP);
+        }, rewindMs);
+      };
+
+      const skip = () => {
+        if (busy) return;
+        busy = true;
+        next();
+        window.setTimeout(() => {
+          busy = false;
+        }, revealMs + rewindMs + GAP);
+      };
+
+      if (reduce.matches || lines.length < 2) {
+        line.innerHTML = render(lines[0]);
+        line.classList.add('is-in');
+        caret.classList.remove('is-idle');
+        park();
+      } else {
+        show();
+        win.addEventListener('click', skip);
+        win.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            skip();
+          }
+        });
+        reduce.addEventListener('change', (event) => {
+          if (!event.matches) return;
+          window.clearTimeout(revealTimer);
+          window.clearTimeout(advanceTimer);
+          line.innerHTML = render(lines[0]);
+          line.style.transition = 'none';
+          line.classList.remove('is-out', 'is-in');
+          caret.classList.remove('is-idle');
+          win.classList.remove('is-holding');
+          caret.style.left = '0px';
+        });
+      }
+
+      // 字体是后加载的：等 webfont 就位再量一次文字宽度，光标不会停在半路
+      document.fonts?.ready.then(() => {
+        if (line.classList.contains('is-in')) park();
+      });
+    }
+
+    // 磁吸悬浮 + 按压缩放：位移与缩放都在同一个 rAF 里算，
+    // 不和 .win 自己的进场动画抢 transform；reduced-motion 下完全不动。
+    const magnet = document.querySelector<HTMLElement>('[data-magnet]');
+    if (magnet) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+      const PULL_X = 10; // 指针居中时 0，到边缘最多 ±5px
+      const PULL_Y = 8; // 到边缘最多 ±4px
+      const LIFT = 3; // 悬浮时整体抬起 3px
+      const LERP = 0.18;
+      const PRESS_SCALE = 0.985;
+
+      let x = 0;
+      let y = 0;
+      let scale = 1;
+      let targetX = 0;
+      let targetY = 0;
+      let targetScale = 1;
+      let frame = 0;
+      let hovering = false;
+
+      // getBoundingClientRect 会把当前 transform 算进去，直接拿它算偏移会自己推自己。
+      // 所以留一份「没变形时」的盒子：测量时临时摘掉 transform，同一帧内还原，不会闪。
+      type Box = { left: number; top: number; width: number; height: number };
+      let box: Box | null = null;
+      const measure = () => {
+        const prev = magnet.style.transform;
+        magnet.style.transform = '';
+        const rect = magnet.getBoundingClientRect();
+        magnet.style.transform = prev;
+        box = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+      };
+
+      const render = () => {
+        frame = 0;
+        x += (targetX - x) * LERP;
+        y += (targetY - y) * LERP;
+        scale += (targetScale - scale) * 0.3;
+
+        const settled =
+          Math.abs(targetX - x) < 0.05 &&
+          Math.abs(targetY - y) < 0.05 &&
+          Math.abs(targetScale - scale) < 0.001;
+
+        if (!hovering && Math.abs(targetScale - 1) < 0.001 && settled) {
+          magnet.style.transform = '';
+          return;
+        }
+
+        magnet.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+        if (!settled) frame = requestAnimationFrame(render);
+      };
+
+      const kick = () => {
+        if (!frame) frame = requestAnimationFrame(render);
+      };
+
+      magnet.addEventListener('pointerenter', () => {
+        if (!box) measure();
+      });
+
+      magnet.addEventListener('pointermove', (event) => {
+        if (reduceMotion.matches || !finePointer.matches) return;
+        if (!box) measure();
+        const nx = (event.clientX - box!.left) / box!.width - 0.5;
+        const ny = (event.clientY - box!.top) / box!.height - 0.5;
+        targetX = nx * PULL_X;
+        targetY = ny * PULL_Y - LIFT;
+        hovering = true;
+        kick();
+      });
+
+      magnet.addEventListener('pointerdown', () => {
+        if (reduceMotion.matches) return;
+        targetScale = PRESS_SCALE;
+        kick();
+      });
+
+      const release = () => {
+        targetScale = 1;
+        kick();
+      };
+
+      magnet.addEventListener('pointerup', release);
+      magnet.addEventListener('pointercancel', release);
+
+      magnet.addEventListener('pointerleave', () => {
+        targetX = 0;
+        targetY = 0;
+        targetScale = 1;
+        hovering = false;
+        box = null; // 下次进入重新量，页面可能已经滚过
+        kick();
+      });
+
+      window.addEventListener('scroll', () => {
+        if (hovering) box = null;
+      }, { passive: true });
+    }
+  </script>
 </BaseLayout>
 
 <style>
@@ -247,8 +508,14 @@ const total = (await getCollection('projects')).length;
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
     align-items: center;
-    gap: clamp(28px, 4.5vw, 56px);
-    padding-block: clamp(44px, 7vw, 88px) clamp(32px, 5vw, 52px);
+    gap: clamp(24px, 3.6vw, 46px);
+    padding-block: clamp(30px, 4.6vw, 58px) clamp(20px, 3vw, 32px);
+  }
+
+  .hero-contrib {
+    grid-column: 1 / -1;
+    margin-top: clamp(18px, 2.6vw, 30px);
+    padding-top: clamp(14px, 2vw, 22px);
   }
 
   .hero h1 {
@@ -265,29 +532,164 @@ const total = (await getCollection('projects')).length;
     text-wrap: pretty;
   }
 
-  .status {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
+  /* 磁吸外壳：只负责位移与按压缩放，玻璃本身的样式留在 .win 上。
+     悬浮时给一层很淡的外阴影，让窗口像离纸面一点点。 */
+  .win-magnet {
+    width: 100%;
+    max-width: 470px;
     margin-top: 26px;
-    font-family: var(--font-mono); /* taste-skill-ignore: 等宽只用在机器口吻的元信息（导航、时间、计数、命令），是这套设计的一部分 */
-    font-size: 0.8125rem;
-    color: var(--text-muted);
+    border-radius: 3px;
+    transition: box-shadow var(--dur-2) var(--ease-out);
   }
 
-  .status .prompt {
-    color: var(--accent);
+  @media (hover: hover) and (pointer: fine) {
+    .win-magnet:hover {
+      box-shadow: var(--win-lift);
+    }
   }
 
-  .status .cmd {
-    color: var(--text);
-    padding: 1px 6px;
-    background: var(--bg-sunken);
+  /* 首屏 slogan 窗口：纸上一扇偏灰黑的磨砂玻璃小窗。
+     两套主题都是暗玻璃——终端本来就该是暗的——背后的点阵与指针光晕会透上来。 */
+  .win {
+    position: relative;
+    width: 100%;
+    height: 74px;
+    overflow: hidden;
+    border: 1px solid var(--win-line);
+    border-radius: 3px;
+    color: var(--win-fg);
+    background: var(--win-bg);
+    background-image: var(--win-tint);
+    -webkit-backdrop-filter: var(--win-filter);
+    backdrop-filter: var(--win-filter);
+    box-shadow:
+      inset 0 1px 0 var(--win-hi),
+      inset 0 -1px 0 var(--win-lo);
+    cursor: pointer;
   }
 
-  .status .out {
-    color: var(--text-soft);
+  .win:focus-visible {
+    outline: 1px solid var(--win-accent);
+    outline-offset: 3px;
+  }
+
+  /* backdrop-filter 不可用时退回不透明暗窗，不靠透明也能读 */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .win {
+      background: var(--win-solid);
+      background-image: none;
+    }
+  }
+
+  .win-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 22px;
+    padding: 0 9px;
+    background: color-mix(in srgb, var(--win-fg) 7%, transparent);
+    border-bottom: 1px solid var(--win-line);
+  }
+
+  .win-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .win-dots i {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--win-fg-dim);
+  }
+
+  .win-dots i:nth-child(1) {
+    background: #c9b4a6;
+  }
+
+  .win-dots i:nth-child(2) {
+    opacity: 0.75;
+  }
+
+  .win-dots i:nth-child(3) {
+    opacity: 0.5;
+  }
+
+  .win-path {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: var(--win-fg-dim);
+  }
+
+  .win-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 51px;
+    padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+
+  .win-prompt {
+    font-size: 13px;
+    color: var(--win-accent);
+  }
+
+  .win-frame {
+    position: relative;
+    display: inline-block;
+  }
+
+  .win-line {
+    display: block;
+    white-space: nowrap;
+    color: var(--win-fg);
+    clip-path: inset(0 100% 0 0);
+  }
+
+  /* 双引号里的参数：跟 `$` 同一个 accent，但不加粗 */
+  .win-line .win-arg {
+    color: var(--win-accent);
+  }
+
+  .win-line.is-in {
+    clip-path: inset(0 0 0 0);
+    transition: clip-path 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  /* 退出：和入场同方向反着走——光标从右扫回起点，文字被它一路擦掉 */
+  .win-line.is-out {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 360ms linear;
+  }
+
+  .win-caret {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 2px;
+    height: 15px;
+    margin-top: -7.5px;
+    background: var(--win-accent);
+    transition: left 90ms linear;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .win-line,
+    .win-line.is-in {
+      clip-path: none;
+    }
+  }
+
+  /* 窄屏：字号退一档，句子还能整句放进窗口 */
+  @media (max-width: 560px) {
+    .win-body {
+      font-size: 12px;
+    }
   }
 
   .where {
@@ -309,6 +711,13 @@ const total = (await getCollection('projects')).length;
   .btn .arrow {
     font-size: 0.85em;
     opacity: 0.75;
+  }
+
+  .btn .icon {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    opacity: 0.85;
   }
 
   /* ---------- 代表作 ---------- */

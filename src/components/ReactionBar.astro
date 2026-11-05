@@ -99,12 +99,21 @@ const formId = `react-form-${entry.id}`;
     cursor: pointer;
     transition:
       border-color var(--dur-2) var(--ease-out),
-      background-color var(--dur-2) var(--ease-out);
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
   }
 
   .chip:hover {
     border-color: var(--line-strong);
     background: var(--bg-sunken);
+  }
+
+  /* 和点赞同一层光晕；表情面板里的格子不加，面板本身已经是一层浮起的表面 */
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover,
+    .add summary:hover {
+      box-shadow: var(--glow-sm);
+    }
   }
 
   .chip.mine {
@@ -142,7 +151,8 @@ const formId = `react-form-${entry.id}`;
     list-style: none;
     transition:
       color var(--dur-2) var(--ease-out),
-      border-color var(--dur-2) var(--ease-out);
+      border-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
   }
 
   .add summary::-webkit-details-marker {
