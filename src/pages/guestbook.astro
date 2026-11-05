@@ -111,6 +111,8 @@ const notice = notices[code];
             placeholder="留空即匿名"
             autocomplete="nickname"
             data-owner={site.name}
+            data-magnet
+            data-magnet-lift="2"
           />
           {/* 彩蛋：输入站主昵称时冒出来 */}
           <p class="egg" id="nickname-egg" hidden>竟然和我一个昵称！🤡<!-- taste-skill-ignore: 🤡 属于彩蛋文案内容，不是图标替代 --> 那你是冒牌的</p>
@@ -145,7 +147,9 @@ const notice = notices[code];
           name="body"
           rows="4"
           maxlength={LIMITS.body}
-          placeholder="说点什么吧……"></textarea>
+          placeholder="说点什么吧……"
+          data-magnet
+          data-magnet-lift="2"></textarea>
 
         <div class="editor-bar">
           <EmojiPicker target="body" />
@@ -363,6 +367,7 @@ const notice = notices[code];
     color: var(--text-soft);
   }
 
+  /* 输入框跟首屏窗口用同一块玻璃：同样的叠色、描边、内高光与外阴影 */
   .field input[type='text'],
   .field textarea {
     width: 100%;
@@ -370,16 +375,39 @@ const notice = notices[code];
     font-family: var(--font-sans);
     font-size: 1rem;
     line-height: 1.65;
-    color: var(--text);
-    background: var(--bg-elev);
-    border: 1px solid var(--line-strong);
+    color: var(--win-fg);
+    caret-color: var(--win-accent);
+    background: var(--win-bg);
+    background-image: var(--win-tint);
+    border: 1px solid var(--win-line);
     border-radius: var(--radius);
-    transition: border-color var(--dur-2) var(--ease-out);
+    backdrop-filter: var(--win-filter);
+    box-shadow:
+      inset 0 1px 0 var(--win-hi),
+      inset 0 -1px 0 var(--win-lo);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
   }
 
+  /* backdrop-filter 不可用时退化成不透明深色，至少要能读 */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .field input[type='text'],
+    .field textarea {
+      background: var(--win-solid);
+    }
+  }
+
+  .field input::placeholder,
+  .field textarea::placeholder {
+    color: var(--win-fg-dim);
+  }
+
+  /* 高度由脚本按内容长，不需要手动拖；超过上限再出滚动条 */
   .field textarea {
     min-height: 132px;
-    resize: vertical;
+    resize: none;
+    overflow-y: hidden;
   }
 
   /* 昵称是短字段，占满整行会很怪；并排布局里两列等宽，就让它铺满自己那列 */
@@ -393,7 +421,11 @@ const notice = notices[code];
 
   .field input:focus,
   .field textarea:focus {
-    border-color: var(--accent);
+    border-color: var(--win-accent);
+    box-shadow:
+      inset 0 1px 0 var(--win-hi),
+      inset 0 -1px 0 var(--win-lo),
+      0 0 0 1px var(--win-accent);
   }
 
   /* 上传：原生 input 藏起来，用同一套按钮语言做触发器，状态在右侧说明 */
@@ -607,6 +639,11 @@ const notice = notices[code];
 </style>
 
 <script>
+  import { initMagnets } from '../scripts/magnet';
+
+  // 输入框和首屏窗口共用一套磁吸：指针在里面移动时朝指针偏一点点
+  initMagnets();
+
   const textarea = document.getElementById('body') as HTMLTextAreaElement | null;
   const counter = document.getElementById('char-count');
   const counterBox = counter?.closest('.counter') ?? null;
@@ -622,6 +659,19 @@ const notice = notices[code];
 
   textarea?.addEventListener('input', updateCount);
   updateCount();
+
+  // 留言框高度跟内容走：先归零再按 scrollHeight 长，到上限才出滚动条
+  const TEXTAREA_MAX = 360;
+  const autosize = () => {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const next = Math.min(textarea.scrollHeight, TEXTAREA_MAX);
+    textarea.style.height = `${next}px`;
+    textarea.style.overflowY = textarea.scrollHeight > TEXTAREA_MAX ? 'auto' : 'hidden';
+  };
+
+  textarea?.addEventListener('input', autosize);
+  autosize();
 
   // 彩蛋：昵称填成站主自己的，冒一句出来
   const nickname = document.getElementById('nickname') as HTMLInputElement | null;
