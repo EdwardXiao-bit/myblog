@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 const LOGIN = process.env.GH_LOGIN || 'EdwardXiao-bit';
 const TOKEN = process.env.GH_CONTRIB_TOKEN || '';
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '../src/data/contributions.json');
+const PUBLIC_OUT = resolve(dirname(fileURLToPath(import.meta.url)), '../public/contributions.json');
 const DAYS = 365;
 
 const iso = (d) => d.toISOString().slice(0, 10);
@@ -161,6 +162,11 @@ async function main() {
       JSON.stringify(prev.weeks) === JSON.stringify(payload.weeks);
     if (same) {
       console.log(`贡献数据未变化（${total} 次，来源 ${result.source}），跳过写入。`);
+      return;
+    }
+    // 本地没 token 时只拿得到公开数据；别把仓库里已有的「含私有贡献」版本覆盖掉
+    if (prev.source === 'graphql' && result.source === 'public') {
+      console.warn('已有 GraphQL（含私有）数据，本地公开数据不覆盖。要更新请带上 GH_CONTRIB_TOKEN。');
       return;
     }
   } catch {

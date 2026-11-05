@@ -33,7 +33,7 @@ weeks.forEach((week, index) => {
       <span class="count">{total}</span>
     </div>
 
-    <div class="contrib" data-contrib>
+    <div class="contrib" data-contrib data-generated={data.generatedAt}>
       <div class="contrib-head">
         <p class="contrib-sum">
           过去一年 <b data-total>{total}</b> 次提交 · <b data-active>{active}</b> 天有提交 · 最长连续
@@ -265,13 +265,31 @@ weeks.forEach((week, index) => {
     // 这样不重新部署也能看到当天数据（取不到就用构建时的那份，不报错）。
     const refresh = async () => {
       try {
-        const res = await fetch(
+        // 依次尝试：jsDelivr（国内可达）→ 本站静态副本 → GitHub raw
+        const sources = [
+          'https://cdn.jsdelivr.net/gh/EdwardXiao-bit/myblog@main/src/data/contributions.json',
+          '/contributions.json',
           'https://raw.githubusercontent.com/EdwardXiao-bit/myblog/main/src/data/contributions.json',
-          { cache: 'no-store' },
+        ];
+        // 几个源并行取，挑「生成时间最新」的那份；避免 CDN 缓存把新数据覆盖成旧的
+        const fetched = await Promise.all(
+          sources.map(async (url) => {
+            try {
+              const res = await fetch(url, { cache: 'no-store' });
+              if (!res.ok) return null;
+              const json = await res.json();
+              return Array.isArray(json?.weeks) && json.generatedAt ? json : null;
+            } catch {
+              return null;
+            }
+          }),
         );
-        if (!res.ok) return;
-        const latest = await res.json();
-        if (!Array.isArray(latest.weeks)) return;
+
+        const builtAt = Date.parse(root.dataset.generated ?? '') || 0;
+        const latest = fetched
+          .filter(Boolean)
+          .sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0];
+        if (!latest || Date.parse(latest.generatedAt) <= builtAt) return;
 
         const byDate = new Map(latest.weeks.flat().map((d) => [d.date, d]));
         let total = 0;
