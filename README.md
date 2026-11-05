@@ -543,3 +543,7 @@ Dockerfile            容器部署
 
 画卡片的逻辑在 `src/lib/og.ts`（SVG + sharp，走系统字体，因此不需要往仓库里塞 CJK 字体文件）。
 想换卡片颜色，改那个文件顶部的 `COLORS`。
+
+## 鸣谢
+
+前端有 [StyleKit](https://www.stylekit.top) 的支持。
