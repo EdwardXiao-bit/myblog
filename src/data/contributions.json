@@ -1,10 +1,10 @@
 {
   "login": "EdwardXiao-bit",
-  "generatedAt": "2026-11-04T16:05:06.073Z",
-  "source": "public",
+  "generatedAt": "2026-11-05T02:09:53.008Z",
+  "source": "graphql",
   "from": "2025-11-02",
-  "to": "2026-11-04",
-  "total": 323,
+  "to": "2026-11-05",
+  "total": 342,
   "longestStreak": 9,
   "weeks": [
     [
@@ -269,8 +269,8 @@
     [
       {
         "date": "2025-12-21",
-        "count": 0,
-        "level": 0
+        "count": 1,
+        "level": 1
       },
       {
         "date": "2025-12-22",
@@ -1335,8 +1335,8 @@
       },
       {
         "date": "2026-07-11",
-        "count": 0,
-        "level": 0
+        "count": 2,
+        "level": 1
       }
     ],
     [
@@ -1347,8 +1347,8 @@
       },
       {
         "date": "2026-07-13",
-        "count": 0,
-        "level": 0
+        "count": 2,
+        "level": 1
       },
       {
         "date": "2026-07-14",
@@ -1372,7 +1372,7 @@
       },
       {
         "date": "2026-07-18",
-        "count": 10,
+        "count": 12,
         "level": 4
       }
     ],
@@ -1389,13 +1389,13 @@
       },
       {
         "date": "2026-07-21",
-        "count": 1,
-        "level": 1
+        "count": 0,
+        "level": 0
       },
       {
         "date": "2026-07-22",
-        "count": 0,
-        "level": 0
+        "count": 1,
+        "level": 1
       },
       {
         "date": "2026-07-23",
@@ -1917,7 +1917,7 @@
       },
       {
         "date": "2026-10-29",
-        "count": 12,
+        "count": 19,
         "level": 4
       },
       {
@@ -1949,13 +1949,13 @@
       },
       {
         "date": "2026-11-04",
-        "count": 7,
-        "level": 3
+        "count": 11,
+        "level": 4
       },
       {
         "date": "2026-11-05",
-        "count": 0,
-        "level": 0
+        "count": 1,
+        "level": 1
       },
       {
         "date": "2026-11-06",
