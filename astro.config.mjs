@@ -17,6 +17,11 @@ export default defineConfig({
     allowedDomains: [
       { hostname: 'edwardxiao.space', protocol: 'https' },
       { hostname: 'www.edwardxiao.space', protocol: 'https' },
+      // 容器内冒烟（deploy.sh 用 http://127.0.0.1:4321）是同源请求，
+      // 但不在线上域名列表里就会被 checkOrigin 挡成 403，自检必然失败。
+      // 这两条只影响「请求 URL 被信任成什么协议/主机」，不放开任何跨站写入。
+      { hostname: '127.0.0.1', protocol: 'http' },
+      { hostname: 'localhost', protocol: 'http' },
     ],
   },
 

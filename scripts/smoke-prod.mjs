@@ -10,8 +10,11 @@
  *
  * 设计说明（都是踩过坑总结的）：
  *  1. 校验失败返回的是 303 + ?m=reason，不是 4xx —— 断言要看 Location。
- *  2. 跨站 / 缺 Origin 由 Astro 自带的 checkOrigin 拦截，返回 403，
- *     在业务代码之前。所以别再断言 303。
+ *  2. 跨站 Origin 由 Astro 自带的 checkOrigin 拦截，返回 403，在业务代码之前。
+ *     缺 Origin 时不拦（只有「带了 Origin 且对不上」才拒），请求落到业务里照常 303，
+ *     业务自己也只校验有 Origin 的情况，所以这里断言 303。
+ *     注意：BASE 用的主机必须在 astro.config 的 security.allowedDomains 里，
+ *     否则同源请求也会被当成跨站挡成 403（容器内冒烟用 127.0.0.1，已加进白名单）。
  *  3. 非表单请求（JSON）不应产生 500 —— 曾经是，四个接口都补了 try/catch。
  */
 import { DatabaseSync } from 'node:sqlite';
@@ -146,7 +149,7 @@ ok((await postForm({ body: 'spam', website: 'http://spam' })).m === 'ok', '蜜�
 const cross = await postForm({ body: 'cross' }, { origin: 'https://evil.example' });
 ok(cross.status === 403, '跨站 Origin -> 403', `实得 ${cross.status}`);
 const noOrigin = await postForm({ body: 'x' }, { origin: null });
-ok(noOrigin.status === 403, '缺 Origin -> 403', `实得 ${noOrigin.status}`);
+ok(noOrigin.status === 303, '缺 Origin -> 业务照常受理（303）', `实得 ${noOrigin.status}`);
 
 // ---- 6. 非表单请求不应 500 ----
 console.log('\n[6] 畸形请求不应产生 500');
