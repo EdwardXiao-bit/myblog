@@ -1,24 +1,30 @@
 ---
 /**
- * 过去一年的 GitHub 贡献格子。
- * 数据来自 src/data/contributions.json（scripts/fetch-contributions.mjs 生成，Actions 每天更新）。
- * 格子只动 transform / opacity；减少动态偏好下不动。
+ * 过去一年的 GitHub 贡献图（首页 hero 的一部分）。
+ * 数据：src/data/contributions.json（scripts/fetch-contributions.mjs 生成，Actions 每天更新）。
+ * 版式参照论文插图：月份标在顶部，图例放在右下角；不写标题、不写总结句。
  */
 import data from '../data/contributions.json';
 
-const { weeks, total, longestStreak, from, to } = data;
+const { weeks, total, from, to } = data;
 const flat = weeks.flat();
-const days = flat.length;
 const active = flat.filter((d) => d.count > 0).length;
-const rangeLabel = `${from} 至 ${to}`;
-const summary = `过去一年 ${total} 次提交，${active} 天有提交，最长连续 ${longestStreak} 天（${rangeLabel}）`;
+const summary = `${from} 至 ${to}，${active} 天有提交，共 ${total} 次`;
+
+// 论文插图式的说明行：342 contributions, 2 Nov 2025 – 5 Nov 2026. Source: GitHub.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const enDate = (iso) => {
+  const [y, m, d] = iso.split('-');
+  return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
+};
+const caption = `${total} contributions, ${enDate(from)} – ${enDate(to)}. Source: GitHub.`;
+
 const monthOf = (date) => Number(date.slice(5, 7));
 const months = [];
 let lastLabelWeek = -99;
 weeks.forEach((week, index) => {
   const m = monthOf(week[0].date);
   const prev = index > 0 ? monthOf(weeks[index - 1][0].date) : null;
-  // 只在月份切换、且离上一个标签至少 5 周时画（否则文字会挤成一坨）
   if (prev !== m && index - lastLabelWeek >= 4) {
     months.push({ month: m, week: index });
     lastLabelWeek = index;
@@ -26,92 +32,65 @@ weeks.forEach((week, index) => {
 });
 ---
 
-{weeks.length > 0 && (
-  <section class="section contrib-section" aria-labelledby="contrib-h">
-    <div class="section-head">
-      <h2 id="contrib-h">提交记录</h2>
-      <span class="count">{total}</span>
+<figure class="contrib" data-contrib data-generated={data.generatedAt}>
+  <div class="contrib-inner">
+  <div class="contrib-scroll">
+    <div class="contrib-months" aria-hidden="true">
+      {months
+        // 最后一个月贴着右边缘、放不下 3 列时就不标，避免文字被裁
+        .filter((m) => m.week + 3 <= 53)
+        .map((m) => (
+          <span class="contrib-month" style={`grid-column: ${m.week + 1} / span 3`}>
+            {m.month} 月
+          </span>
+        ))}
     </div>
 
-    <div class="contrib" data-contrib data-generated={data.generatedAt}>
-      <div class="contrib-head">
-        <p class="contrib-sum">
-          过去一年 <b data-total>{total}</b> 次提交 · <b data-active>{active}</b> 天有提交 · 最长连续
-          <b data-streak>{longestStreak}</b> 天
-        </p>
-        <div class="contrib-legend" aria-hidden="true">
-          <span class="contrib-legend-label">少</span>
-          {[0, 1, 2, 3, 4].map((level) => <span class={`contrib-cell is-${level}`} />)}
-          <span class="contrib-legend-label">多</span>
-        </div>
-      </div>
-
-      <div class="contrib-scroll">
-        <div class="contrib-months" aria-hidden="true">
-          {months.map((m) => (
-            <span class="contrib-month" style={`grid-column: ${m.week + 1} / span 3`}>
-              {m.month} 月
-            </span>
-          ))}
-        </div>
-
-        <div class="contrib-grid" role="img" aria-label={summary}>
-          {weeks.map((week) =>
-            week.map((d) => (
-              <span
-                class={`contrib-cell is-${d.level}`}
-                style={`grid-row: ${new Date(d.date + 'T00:00:00Z').getUTCDay() + 1}`}
-                data-date={d.date}
-                data-count={d.count}
-              />
-            )),
-          )}
-        </div>
-      </div>
-
-      <p class="contrib-tip" data-tip aria-hidden="true"></p>
+    <div class="contrib-grid" role="img" aria-label={summary}>
+      {weeks.map((week) =>
+        week.map((d) => (
+          <span
+            class={`contrib-cell is-${d.level}`}
+            style={`grid-row: ${new Date(d.date + 'T00:00:00Z').getUTCDay() + 1}`}
+            data-date={d.date}
+            data-count={d.count}
+          />
+        )),
+      )}
     </div>
-  </section>
-)}
+  </div>
+
+  <figcaption class="contrib-foot">
+    <p class="contrib-source">
+      {total} contributions, {enDate(from)} – {enDate(to)}. Source:{' '}
+      <a href="https://github.com/EdwardXiao-bit" target="_blank" rel="noreferrer noopener">GitHub</a>.
+    </p>
+
+    <span class="contrib-legend">
+      <span class="contrib-legend-label">少</span>
+      {[0, 1, 2, 3, 4].map((level) => <span class={`contrib-swatch is-${level}`} />)}
+      <span class="contrib-legend-label">多</span>
+    </span>
+  </figcaption>
+  </div>
+
+  <p class="contrib-tip" data-tip aria-hidden="true"></p>
+</figure>
 
 <style>
   .contrib {
+    --cell: clamp(6px, 1vw, 12px);
+    --gap: clamp(2px, 0.3vw, 4px);
     position: relative;
-    background: var(--bg-elev);
-    border-radius: var(--radius-sm);
-    padding: clamp(14px, 2.4vw, 22px);
-  }
-
-  .contrib-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px 18px;
-    margin-bottom: 14px;
-  }
-
-  .contrib-sum {
     margin: 0;
-    font-size: 1rem;
-    color: var(--text-soft);
   }
 
-  .contrib-sum b {
-    color: var(--text);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .contrib-legend {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .contrib-legend-label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
+  /* 面板宽度跟着格子走：这样图例的右边缘和格子的右边缘是同一条线 */
+  .contrib-inner {
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: 100%;
   }
 
   .contrib-scroll {
@@ -126,8 +105,11 @@ weeks.forEach((week, index) => {
     display: grid;
     grid-template-columns: repeat(53, var(--cell));
     gap: var(--gap);
-    margin-bottom: 4px;
+    /* 3px：抵消 .contrib-grid 的上内边距，让月份和第一行格子的间距还是 6px */
+    margin-bottom: 3px;
     min-width: max-content;
+    /* 跟着格子的 3px 内边距一起右移，月份列才不会和格子错位 */
+    padding-inline: 3px;
   }
 
   .contrib-month {
@@ -144,6 +126,9 @@ weeks.forEach((week, index) => {
     gap: var(--gap);
     min-width: max-content;
     width: max-content;
+    /* 悬停放大 1.5 倍会向四周多出 0.25 格（12px 格子即 3px）。这部分画在内边距里，
+       既不会被滚动容器裁掉，也不会把最外圈的格子撑成可滚动溢出（横向滚动条）。 */
+    padding: 3px;
   }
 
   .contrib-cell {
@@ -157,19 +142,78 @@ weeks.forEach((week, index) => {
       background-color 120ms linear;
   }
 
-  .contrib-cell.is-1 { background: var(--contrib-1); }
-  .contrib-cell.is-2 { background: var(--contrib-2); }
-  .contrib-cell.is-3 { background: var(--contrib-3); }
-  .contrib-cell.is-4 { background: var(--contrib-4); }
+  .contrib-swatch {
+    flex: none;
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 1px;
+    background: var(--contrib-0);
+  }
 
-  /* 悬停：当前格放大，其余轻微退后，视线更集中 */
+  .contrib-cell.is-1,
+  .contrib-swatch.is-1 { background: var(--contrib-1); }
+
+  .contrib-cell.is-2,
+  .contrib-swatch.is-2 { background: var(--contrib-2); }
+
+  .contrib-cell.is-3,
+  .contrib-swatch.is-3 { background: var(--contrib-3); }
+
+  .contrib-cell.is-4,
+  .contrib-swatch.is-4 { background: var(--contrib-4); }
+
+  /* 悬停：当前格放大，其余退后 */
   .contrib-grid:hover .contrib-cell {
-    opacity: 0.55;
+    opacity: 0.5;
   }
 
   .contrib-grid .contrib-cell:hover {
     opacity: 1;
-    transform: scale(1.45);
+    transform: scale(1.5);
+  }
+
+  .contrib-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 10px;
+    /* 和格子左边对齐（格子有 3px 内边距），否则来源和格子的左边缘差 3px */
+    padding-inline: 3px;
+  }
+
+  .contrib-source {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .contrib-source a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .contrib-source a:hover {
+    color: var(--accent);
+  }
+
+  .contrib-legend {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .contrib-legend .contrib-cell {
+    cursor: default;
+  }
+
+  .contrib-legend-label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
   }
 
   .contrib-tip {
@@ -198,32 +242,37 @@ weeks.forEach((week, index) => {
     transform: translate(-50%, calc(-100% - 8px)) scale(1);
   }
 
-  .contrib-tip b {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .contrib-section {
-    --cell: clamp(7px, 1.25vw, 14px);
-    --gap: clamp(2px, 0.28vw, 3px);
-  }
-
   @media (max-width: 720px) {
-    .contrib-section {
-      --cell: 8px;
-      --gap: 2px;
+    .contrib-inner {
+      width: 100%;
     }
 
     .contrib-months {
       display: none;
     }
-  }
 
-  /* 更窄的屏：格子再缩一档，53 周能在一屏里放下，不用横向滑动 */
-  @media (max-width: 480px) {
-    .contrib-section {
-      --cell: 5px;
-      --gap: 1px;
+    .contrib-grid {
+      width: 100%;
+      grid-template-columns: repeat(53, minmax(0, 1fr));
+      grid-auto-columns: minmax(0, 1fr);
+      grid-template-rows: repeat(7, auto);
+      gap: 1px;
+    }
+
+    .contrib-grid .contrib-cell {
+      width: auto;
+      height: auto;
+      aspect-ratio: 1;
+    }
+
+    .contrib-swatch {
+      width: 8px;
+      height: 8px;
+    }
+
+    .contrib-foot {
+      flex-wrap: wrap;
+      gap: 6px 16px;
     }
   }
 
@@ -245,6 +294,7 @@ weeks.forEach((week, index) => {
 
   if (root && tip) {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const label = (date: string, count: number) => {
       const [, m, d] = date.split('-');
       return `${Number(m)} 月 ${Number(d)} 日 · ${count} 次提交`;
@@ -261,17 +311,24 @@ weeks.forEach((week, index) => {
 
     const hide = () => tip.classList.remove('is-on');
 
-    // 贡献数据每天由 Actions 提交；页面打开时顺手从仓库 raw 取一次最新版本，
-    // 这样不重新部署也能看到当天数据（取不到就用构建时的那份，不报错）。
-    const refresh = async () => {
-      try {
-        // 依次尝试：jsDelivr（国内可达）→ 本站静态副本 → GitHub raw
+    root.addEventListener('pointerover', (event) => {
+      const cell = (event.target as HTMLElement | null)?.closest<HTMLElement>('.contrib-cell');
+      if (cell?.dataset.date && root.contains(cell)) show(cell);
+    });
+    root.addEventListener('pointerleave', hide);
+
+    // figure 比格子宽，右边会空出一块。只在 figure 上监听 pointerleave 的话，
+    // 鼠标挪到那块空白区域里提示条不会消失；挪出格子就收起。
+    root.querySelector('.contrib-grid')?.addEventListener('pointerleave', hide);
+
+    // 数据每天由 Actions 提交：页面打开时并行取几个源，用生成时间最新的那份。
+    if (!reduce) {
+      void (async () => {
         const sources = [
           'https://cdn.jsdelivr.net/gh/EdwardXiao-bit/myblog@main/src/data/contributions.json',
           '/contributions.json',
           'https://raw.githubusercontent.com/EdwardXiao-bit/myblog/main/src/data/contributions.json',
         ];
-        // 几个源并行取，挑「生成时间最新」的那份；避免 CDN 缓存把新数据覆盖成旧的
         const fetched = await Promise.all(
           sources.map(async (url) => {
             try {
@@ -287,15 +344,11 @@ weeks.forEach((week, index) => {
 
         const builtAt = Date.parse(root.dataset.generated ?? '') || 0;
         const latest = fetched
-          .filter(Boolean)
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
           .sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0];
         if (!latest || Date.parse(latest.generatedAt) <= builtAt) return;
 
         const byDate = new Map(latest.weeks.flat().map((d) => [d.date, d]));
-        let total = 0;
-        let active = 0;
-        let streak = 0;
-        let longest = 0;
         for (const cell of root.querySelectorAll<HTMLElement>('.contrib-cell[data-date]')) {
           const next = byDate.get(cell.dataset.date ?? '');
           if (!next) continue;
@@ -304,36 +357,8 @@ weeks.forEach((week, index) => {
             if (/^is-\d$/.test(name)) cell.classList.remove(name);
           });
           cell.classList.add(`is-${next.level}`);
-          if (next.count > 0) {
-            active += 1;
-            streak += 1;
-            longest = Math.max(longest, streak);
-          } else {
-            streak = 0;
-          }
-          total += next.count;
         }
-
-        const set = (sel: string, value: number) => {
-          const el = root.querySelector(sel);
-          if (el && Number(el.textContent) !== value) el.textContent = String(value);
-        };
-        set('[data-total]', total);
-        set('[data-active]', active);
-        set('[data-streak]', longest || latest.longestStreak || 0);
-      } catch {
-        /* 离线或限流：保留构建时数据 */
-      }
-    };
-
-    if (!reduce) refresh();
-
-    root.addEventListener('pointerover', (event) => {
-      const cell = (event.target as HTMLElement | null)?.closest<HTMLElement>('.contrib-cell');
-      if (cell && root.contains(cell)) show(cell);
-    });
-    root.addEventListener('pointerleave', hide);
-    root.addEventListener('focusin', hide);
-    if (reduce) tip.classList.remove('is-on');
+      })();
+    }
   }
 </script>
