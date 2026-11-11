@@ -106,7 +106,7 @@ if (leftovers.size === 0) {
 // ---------- 2) 静态 / SSR 边界 ----------
 console.log('\n--- 静态 / SSR 边界 ---');
 const mustBeStatic = ['index.html', 'projects/index.html', 'activities/index.html'];
-const mustBeSsr = ['guestbook/index.html', 'admin/index.html'];
+const mustBeSsr = ['guestbook/index.html', 'admin/index.html', 'admin/content/index.html'];
 
 for (const p of mustBeStatic) {
   if (existsSync(join(CLIENT, p))) console.log(`OK   ${p} 已预渲染`);
@@ -126,8 +126,8 @@ console.log('\n--- 本地引用完整性 ---');
 const skip = /^(https?:|mailto:|tel:|data:|#|\/\/)/;
 
 // 这些路径由服务端在运行时渲染，dist/client 里自然没有对应文件，
-// 不能按「静态文件必须存在」来判定。
-const ssrRoutes = ['/guestbook', '/admin', '/rss.xml'];
+// 不能按「静态文件必须存在」来判定。后台新增条目引用的上传图片走 /uploads 路由。
+const ssrRoutes = ['/guestbook', '/admin', '/admin/content', '/rss.xml', '/uploads'];
 const isSsrRoute = (p) => p.startsWith('/api/') || ssrRoutes.some((r) => p === r || p.startsWith(r + '/'));
 
 let refCount = 0;

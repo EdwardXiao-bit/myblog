@@ -85,7 +85,8 @@ npm run dev     # 打开 http://localhost:4321
 
 ```bash
 npm run build        # 构建到 dist/（静态页进 dist/client，服务端代码进 dist/server）
-npm run serve        # 跑构建产物（等同线上运行方式）
+npm run serve        # 跑构建产物（启动脚本会先切到后台重建出的最新目录）
+npm run serve:loop   # 同上，但进程退出后自动拉起——本地测「保存后重建」用这个
 npm run preview      # 预览构建结果
 npm run check:build  # 构建后自检：内容断言 + 断链 + 静态/SSR 边界（建议 build 之后跑）
 npm run smoke        # 对运行中的服务器发真实请求，确认页面正常
@@ -100,8 +101,9 @@ npm run test:guestbook  # 留言板端到端测试（见下方说明）
 | 颜色、字号、间距、圆角 | `src/styles/global.css` 顶部的设计变量 |
 | 导航栏菜单 | `src/components/Header.astro` 里的 `nav` 数组 |
 | 首页布局 | `src/pages/index.astro` |
-| 项目内容 | `src/content/projects/` 里的 Markdown |
-| 活动内容与照片 | `src/content/activities/` 里的目录 |
+| 项目内容 | `src/content/projects/` 里的 Markdown，或后台 `/admin/content` |
+| 活动内容与照片 | `src/content/activities/` 里的目录，或后台 `/admin/content` |
+| 首屏相片堆 | 后台 `/admin/content`（默认几张写死在 `src/pages/index.astro`） |
 | 内容字段规则（哪些必填） | `src/content.config.ts` |
 
 头像：把图片放进 `public/`（比如 `public/avatar.jpg`），然后在 `src/data/site.ts` 里把 `avatar` 改成 `'/avatar.jpg'`。留空就用名字首字生成。
@@ -159,6 +161,30 @@ captions:          # 可选，和 photos 按顺序对应
 > 画廊用的是多列（masonry）布局，横图和竖图会各按自己的比例排，
 > **不会被裁成统一尺寸**——所以手机拍的竖图直接放进去也不会缺内容。
 > `captions` 是可选的，但照片多、题材杂时写上会清楚很多。
+
+## 在后台改内容（不用改代码）
+
+登录 `/admin` 之后点「编辑内容」，或者直接开 `/admin/content`，可以改三块：
+
+| 区块 | 能做什么 | 对应页面 |
+| --- | --- | --- |
+| 首屏相片堆 | 新增/编辑/删除首屏那几张倾斜的相片（图片、标题、跳转、排序） | 首页首屏 |
+| 项目卡片 | 新增项目；或点开任意静态项目做覆盖（标题、简介、封面、链接、标签、排序、隐藏） | 首页「代表作」、`/projects/` |
+| 活动 | 新增活动；或覆盖现有活动的标题、日期、地点、封面、相册图与题注、正文、隐藏 | 首页「最近」、`/activities/` 与详情页 |
+
+几个规则：
+
+- **存完要等一次重建**：首页、项目、活动页是构建期产物，所以保存/删除之后会自动在容器里重新构建一次（十几秒），构建完页面自动刷新。构建期间旧页面继续服务；构建失败时旧版本保留，原因写在 `data/rebuild.log`，后台页面顶部也能看到，还可以点「重新构建」手动重试。
+- **覆盖而不是改写**：覆盖静态条目时只往数据库写一行，Markdown 原文件不动；把那一行删掉就回到 Markdown 版本。覆盖时 slug 锁定为原来的 id，所以链接不变。
+- **排序决定位置**：首页「代表作」取排序最靠前的 3 个**有封面**的项目；「最近」取日期最新的 4 条活动（静态和后台新增一起排）。想换位置就改排序/日期。
+- **隐藏**：`status` 选「隐藏」后条目从列表、站点地图和详情页一起消失，但数据还留着。
+- **图片**：上传后落在 `data/uploads/年/月/`，自动压成 WebP，和留言板用同一套存储（见下面的「图片存在哪」）。运行时容器里 `./data` 是唯一持久卷，这里上传的图片同样只在备份里。
+- **相册**：活动表单里的「相册图片」可以一次选多张，保存时统一上传；每张图右边有自己的题注输入框，留空就是没题注。已有的图会带着缩略图列出来，点「移除」就不再生效（保存后生效）。
+
+数据存在 SQLite 的 `content_items` 表（`src/lib/content.ts`），三类内容共用一张表，用 `kind` 区分。
+重建逻辑在 `src/lib/rebuild.ts`：它调用 `scripts/rebuild.mjs` 构建到带时间戳的 `dist-build-<时间>` 目录，写一个交接文件 `data/dist-next.txt`，然后退出进程；`scripts/serve.mjs` 在下次启动时切到新目录、删掉旧目录。所以运行镜像里除了 `dist` 还需要 `src`、`public`、`astro.config.mjs`（见 Dockerfile），容器靠 compose 的 `restart: unless-stopped` 拉起新进程。
+
+因为镜像里的 `dist` 是 `docker build` 时生成的，那时还没有 `./data` 卷，后台存的覆盖行不在里面，所以 `deploy.sh` 在容器启动健康后会再跑一次 `docker compose exec -T app node scripts/rebuild.mjs` 并用新代码重启，页面才和线上数据一致。`serve.mjs` 在没有交接文件时会在 `data/dist-current.txt` 指向的目录和 `dist` 之间按构建时间取新者，所以本地 `npm run build` 之后直接 `npm run serve` 也能看到最新产物。
 
 ## 留言板与日记
 
@@ -414,11 +440,16 @@ SITE_URL=https://your-domain.com npm run build
 ADMIN_PASSWORD='你的密码' \
 GUESTBOOK_SALT='一串随机字符' \
 HOST=0.0.0.0 PORT=4321 \
-node dist/server/entry.mjs
+node scripts/serve.mjs
 ```
 
 用 systemd 或 pm2 跑成常驻服务，前面用 Caddy / nginx 做 HTTPS 反向代理。
 **这种跑法也要记得 `TRUST_PROXY=1`**（见上一节），否则限流会失效。
+
+> 非 Docker 部署同样要保留 `src/`、`public/`、`astro.config.mjs` 和 `node_modules`，
+> 因为后台保存后要在机器上重新构建；启动入口是 `scripts/serve.mjs`，
+> 它会先切到最新构建目录再起服务（见上面的「在后台改内容」）。
+> 重启策略别用 `Restart=on-failure`，后台重建完成后进程是**正常退出**的，要用 `Restart=always`。
 
 系统自带的 systemd 单元最省事（不用装 pm2）：
 
@@ -432,7 +463,7 @@ After=network.target
 WorkingDirectory=/opt/myblog
 EnvironmentFile=/opt/myblog/.env
 Environment=NODE_ENV=production HOST=127.0.0.1 PORT=4321 TRUST_PROXY=1
-ExecStart=/usr/bin/node dist/server/entry.mjs
+ExecStart=/usr/bin/node scripts/serve.mjs
 Restart=always
 User=www-data
 

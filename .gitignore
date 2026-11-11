@@ -1,5 +1,9 @@
 # build output
 dist/
+# 后台重建的中转目录（构建到 dist-build-<时间>，下次启动切换过去）
+dist-build-*/
+dist-next/
+dist-old/
 .astro/
 
 # dependencies
@@ -11,6 +15,12 @@ node_modules/
 # 数据库（留言 / 日记都在这，别提交）
 data/*.db
 data/*.db-*
+
+# 后台重建的交接文件、状态与日志：运行时产物
+data/dist-next.txt
+data/dist-current.txt
+data/rebuild.log
+data/rebuild-state.json
 
 # 留言上传的图片：运行时数据，不进版本库
 # （部署时它和数据库一样需要持久化磁盘）

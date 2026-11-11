@@ -30,6 +30,12 @@ export default defineConfig({
   // 只有显式写了 `export const prerender = false` 的页面走服务端渲染。
   adapter: node({ mode: 'standalone' }),
 
+  // 后台保存内容后会在容器里重新构建（src/lib/rebuild.ts）。
+  // 构建到带时间戳的 dist-build-<时间> 目录，下次启动由 scripts/serve.mjs 切过去，
+  // 重建期间线上继续吃旧产物。
+  // 平时不设这个变量，构建产物还是 ./dist。
+  outDir: process.env.ASTRO_OUT_DIR || './dist',
+
   // sitemap 由 src/pages/sitemap.xml.ts 预渲染生成。
   // 不用 @astrojs/sitemap：它在 build:done 阶段写文件，进不了 standalone 的资产清单，
   // 线上会被 404（robots.txt 却指着它）。

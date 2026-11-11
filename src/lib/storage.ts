@@ -14,7 +14,7 @@ import { loadEnvOnce } from './env';
  */
 
 /** 单张图片的大小上限（字节） */
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 /** 一条留言最多带几张图 */
 export const MAX_IMAGES_PER_ENTRY = 3;
 /** 长边超过这个像素就等比缩小 */

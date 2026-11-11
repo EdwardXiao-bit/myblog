@@ -3,7 +3,8 @@ import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 
 interface Props {
-  photos: ImageMetadata[];
+  /** 构建期导入的图是 ImageMetadata；后台上传的是 /uploads/... 路径 */
+  photos: Array<ImageMetadata | string>;
   /** 与 photos 按顺序一一对应的说明，可以少写或不写 */
   captions?: string[];
   /** 图片替代文本前缀，没写说明时用它拼序号 */
@@ -19,15 +20,24 @@ const { photos, captions = [], alt = '活动照片' } = Astro.props;
       {photos.map((photo, i) => (
         <li data-reveal>
           {/* 点开就是原图（和原来一样的逻辑），缩略图统一裁成方形 */}
-          <a href={photo.src} target="_blank" rel="noopener" title="查看原图">
-            <Image
-              src={photo}
-              alt={captions[i] ?? `${alt} ${i + 1}`}
-              widths={[320, 640, 1280]}
-              sizes="(max-width: 560px) 45vw, (max-width: 1040px) 22vw, 200px"
-              loading="lazy"
-              decoding="async"
-            />
+          <a
+            href={typeof photo === 'string' ? photo : photo.src}
+            target="_blank"
+            rel="noopener"
+            title="查看原图"
+          >
+            {typeof photo === 'string' ? (
+              <img src={photo} alt={captions[i] ?? `${alt} ${i + 1}`} loading="lazy" decoding="async" />
+            ) : (
+              <Image
+                src={photo}
+                alt={captions[i] ?? `${alt} ${i + 1}`}
+                widths={[320, 640, 1280]}
+                sizes="(max-width: 560px) 45vw, (max-width: 1040px) 22vw, 200px"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
           </a>
           {captions[i] && <p class="gallery-caption">{captions[i]}</p>}
         </li>

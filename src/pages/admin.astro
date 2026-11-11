@@ -109,6 +109,10 @@ const statusLabel: Record<string, string> = {
                 通过、驳回、回复；冒牌昵称会被单独标出来。
               </li>
               <li>
+                <strong>管理站点内容</strong>
+                项目卡片、活动、首屏相片堆都能改，存完即生效。
+              </li>
+              <li>
                 <strong>写站主日记</strong>
                 随手记一段，可以只给自己看，也可以直接发到留言板。
               </li>
@@ -141,6 +145,12 @@ const statusLabel: Record<string, string> = {
               </li>
             </ul>
           )}
+
+          <h3 class="block-title">站点内容</h3>
+          <p class="content-entry">
+            项目卡片、活动和首屏相片堆都可以在这里改，存完会自动重建，十几秒后生效。
+            <a class="btn" href="/admin/content">编辑内容 →</a>
+          </p>
 
           <h3 class="block-title">写日记</h3>
           <form class="diary" method="post" action="/api/admin">
@@ -514,6 +524,15 @@ const statusLabel: Record<string, string> = {
     color: var(--text-muted);
   }
 
+  .content-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 24px;
+    font-size: 0.875rem;
+    color: var(--text-soft);
+  }
   .block-title {
     display: flex;
     align-items: center;

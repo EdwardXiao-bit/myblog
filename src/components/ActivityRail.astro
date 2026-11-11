@@ -3,7 +3,7 @@ import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 
 interface RailItem {
-  src?: ImageMetadata;
+  src?: ImageMetadata | string;
   alt: string;
   meta: string;
   title: string;
@@ -25,7 +25,9 @@ const { items } = Astro.props;
         <li class="rail-item" data-rail-item>
           <a class="rail-card" href={item.href}>
             <span class="rail-shot">
-              {item.src ? (
+              {typeof item.src === 'string' ? (
+                <img src={item.src} alt={item.alt} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" />
+              ) : item.src ? (
                 <Image
                   src={item.src}
                   alt={item.alt}

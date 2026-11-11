@@ -1,0 +1,374 @@
+---
+export const prerender = false;
+
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ContentForm from '../../components/admin/ContentForm.astro';
+import { site } from '../../data/site';
+import { adminConfigured, adminCookie, verifyToken } from '../../lib/auth';
+import { contentCounts, listContent, overridesBySlug } from '../../lib/content';
+import { rebuildState } from '../../lib/rebuild';
+import { MAX_IMAGE_BYTES } from '../../lib/storage';
+
+const configured = adminConfigured();
+const authed = configured && verifyToken(Astro.cookies.get(adminCookie.name)?.value);
+
+const notices: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
+  saved: { tone: 'ok', text: '已保存，正在重新构建页面（十几秒），完成后会自动刷新。' },
+  deleted: { tone: 'ok', text: '已删除，正在重新构建页面…' },
+  rebuilding: { tone: 'ok', text: '正在重新构建页面…' },
+  'empty-title': { tone: 'warn', text: '标题不能为空。' },
+  'need-cover': { tone: 'warn', text: '新建条目需要一张封面图（覆盖静态条目时可以留空，沿用原封面）。' },
+  'bad-image': { tone: 'warn', text: '图片格式不支持，请用 jpg / png / webp / gif。' },
+  'image-too-large': {
+    tone: 'warn',
+    text: `单张图片不能超过 ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB。`,
+  },
+  'image-failed': { tone: 'warn', text: '图片保存失败，请重试。' },
+  'bad-kind': { tone: 'warn', text: '内容类型不对，已忽略。' },
+  'bad-request': { tone: 'warn', text: '请求不合法，已忽略。' },
+  'need-auth': { tone: 'warn', text: '登录状态已过期，请回管理页重新登录。' },
+};
+
+const noticeKey = Astro.url.searchParams.get('m') ?? '';
+const notice = notices[noticeKey];
+// 保存/删除之后要等构建跑完才刷新页面
+const rebuilding = noticeKey === 'saved' || noticeKey === 'deleted' || noticeKey === 'rebuilding';
+const rebuild = authed ? rebuildState() : null;
+// 构建时间存的是 UTC ISO，展示时换成本地时间（站点面向国内，容器里 TZ 是 UTC）
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+
+const staticProjects = authed ? await getCollection('projects') : [];
+const staticActivities = authed ? await getCollection('activities') : [];
+const projectOverrides = authed ? overridesBySlug('project') : new Map();
+const activityOverrides = authed ? overridesBySlug('activity') : new Map();
+const deckRows = authed ? listContent('deck', { includeHidden: true }) : [];
+const customProjects = authed
+  ? listContent('project', { includeHidden: true }).filter((row) => !row.slug)
+  : [];
+const customActivities = authed
+  ? listContent('activity', { includeHidden: true }).filter((row) => !row.slug)
+  : [];
+const counts = authed ? contentCounts() : null;
+
+const sortedProjects = [...staticProjects].sort(
+  (a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title, 'zh-CN'),
+);
+const sortedActivities = [...staticActivities].sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+---
+
+<BaseLayout title={`内容管理 · ${site.name}`} description="项目、活动与首屏相片堆">
+  <section class="section">
+    <div class="section-head">
+      <h1 class="page-title">内容管理</h1>
+      <p class="head-links">
+        <a href="/admin">← 回管理页</a>
+        {authed && <a href="/" target="_blank" rel="noopener">看首页</a>}
+      </p>
+    </div>
+
+    <p class="lead">
+      改动写进数据库，然后自动重新构建一次——首页 / 项目 / 活动页是构建期产物，构建完才算真正生效（十几秒）。
+      覆盖静态条目时保留它原来的 <code>slug</code>；删掉覆盖就回到 Markdown 版本。
+    </p>
+
+    {notice && (
+      <p class={`notice notice-${notice.tone}`} role="status" data-rebuild={rebuilding ? '' : undefined}>
+        {notice.text}
+      </p>
+    )}
+
+    {authed && rebuild && (
+      <p class="rebuild-line">
+        {rebuild.ready
+          ? '构建完成，等待服务重启…'
+          : rebuild.building
+            ? '正在重新构建…'
+            : rebuild.ok === true
+            ? `上次构建成功${rebuild.finishedAt ? ` · ${formatTime(rebuild.finishedAt)}` : ''}`
+            : rebuild.ok === false
+              ? `上次构建失败：${rebuild.error ?? '未知原因'}（日志：data/rebuild.log）`
+              : '还没有构建记录'}
+        <form method="post" action="/api/admin-content" class="rebuild-form">
+          <input type="hidden" name="action" value="rebuild" />
+          <button class="btn btn-ghost" type="submit">重新构建</button>
+        </form>
+      </p>
+    )}
+
+    {!authed && (
+      <div class="gate">
+        <p>这个页面要先登录。</p>
+        <a class="btn btn-primary" href="/admin">去管理页登录</a>
+      </div>
+    )}
+
+    {authed && counts && (
+      <>
+        <p class="stats">
+          相片堆覆盖 <b>{counts.deck}</b> 张 · 项目覆盖/新增 <b>{counts.projects}</b> 条 ·
+          活动覆盖/新增 <b>{counts.activities}</b> 条
+        </p>
+
+        <h2 class="block-title">首屏相片堆</h2>
+        <p class="hint">
+          默认那几张写在首页代码里。这里只要加过任意一张，首屏就整组换成这里的内容；全删掉会自动回到默认。
+        </p>
+        {deckRows.map((row) => (
+          <details class="item">
+            <summary>
+              <span class="item-title">{row.title || '(未命名)'}</span>
+              <span class="item-meta">
+                #{row.id} · 排序 {row.order} · {row.status === 'hidden' ? '隐藏' : '公开'}
+              </span>
+            </summary>
+            <ContentForm kind="deck" row={row} submitLabel="保存这张" />
+          </details>
+        ))}
+        <details class="item item-add">
+          <summary>＋ 新增一张相片</summary>
+          <ContentForm kind="deck" submitLabel="添加到相片堆" />
+        </details>
+
+        <h2 class="block-title">项目卡片</h2>
+        <p class="hint">
+          下面列出仓库里的静态项目；点开可以覆盖它的标题、简介、封面等，也可以直接新增一条。首页「代表作」取
+          <b>排序最靠前的 3 个有封面的项目</b>，改这里的排序就能换位。
+        </p>
+        {sortedProjects.map((project) => {
+          const override = projectOverrides.get(project.id);
+          return (
+            <details class="item" class:list={{ 'is-overridden': Boolean(override) }}>
+              <summary>
+                <span class="item-title">{override?.title || project.data.title}</span>
+                <span class="item-meta">
+                  {project.id}
+                  {override ? ` · 已覆盖 #${override.id}` : ' · 静态'}
+                </span>
+              </summary>
+              <ContentForm
+                kind="project"
+                row={override ?? null}
+                slug={project.id}
+                staticTitle={project.data.title}
+                submitLabel={override ? '保存覆盖' : '创建覆盖'}
+              />
+            </details>
+          );
+        })}
+        {customProjects.map((row) => (
+          <details class="item is-custom" open>
+            <summary>
+              <span class="item-title">{row.title}</span>
+              <span class="item-meta">#{row.id} · 后台新增 · {row.status === 'hidden' ? '隐藏' : '公开'}</span>
+            </summary>
+            <ContentForm kind="project" row={row} submitLabel="保存" />
+          </details>
+        ))}
+        <details class="item item-add">
+          <summary>＋ 新增项目</summary>
+          <ContentForm kind="project" submitLabel="添加项目" />
+        </details>
+
+        <h2 class="block-title">活动</h2>
+        <p class="hint">
+          最近与活动页都按日期倒序，首页「最近」取日期最新的 4 条。覆盖现有活动时 slug 保持原来的 id，链接也不会变；后台新增的活动自动生成
+          <code>/activities/custom-编号/</code> 详情页。
+        </p>
+        {sortedActivities.map((activity) => {
+          const override = activityOverrides.get(activity.id);
+          return (
+            <details class="item" class:list={{ 'is-overridden': Boolean(override) }}>
+              <summary>
+                <span class="item-title">{override?.title || activity.data.title}</span>
+                <span class="item-meta">
+                  {activity.id}
+                  {override ? ` · 已覆盖 #${override.id}` : ' · 静态'}
+                </span>
+              </summary>
+              <ContentForm
+                kind="activity"
+                row={override ?? null}
+                slug={activity.id}
+                staticTitle={activity.data.title}
+                submitLabel={override ? '保存覆盖' : '创建覆盖'}
+              />
+            </details>
+          );
+        })}
+        {customActivities.map((row) => (
+          <details class="item is-custom" open>
+            <summary>
+              <span class="item-title">{row.title}</span>
+              <span class="item-meta">#{row.id} · 后台新增 · {row.status === 'hidden' ? '隐藏' : '公开'}</span>
+            </summary>
+            <ContentForm kind="activity" row={row} submitLabel="保存" />
+          </details>
+        ))}
+        <details class="item item-add">
+          <summary>＋ 新增活动</summary>
+          <ContentForm kind="activity" submitLabel="添加活动" />
+        </details>
+      </>
+    )}
+  </section>
+</BaseLayout>
+
+<script>
+  for (const form of document.querySelectorAll('form[data-confirm]')) {
+    form.addEventListener('submit', (event) => {
+      if (!confirm('确定要删除吗？删掉之后页面会回到静态版本。')) event.preventDefault();
+    });
+  }
+
+  // 保存/删除之后：轮询构建状态，构建成功就换成干净 URL 重新加载。
+  // 进程在构建成功后退出、由容器/守护脚本重启，所以请求失败是正常的，继续等。
+  const status = document.querySelector('[data-rebuild]');
+  if (status) {
+    const tick = async () => {
+      try {
+        const response = await fetch('/api/rebuild-status', { cache: 'no-store' });
+        if (!response.ok) throw new Error(String(response.status));
+        const state = await response.json();
+        if (state.ready) {
+          status.textContent = '构建完成，正在重启服务…';
+        } else if (state.building) {
+          status.textContent = '正在重新构建页面…';
+        } else if (state.ok === true) {
+          status.textContent = '构建完成，正在重新加载…';
+          // 用 replace 去掉 ?m= 参数，避免加载后又看到「正在构建」
+          location.replace('/admin/content');
+          return;
+        } else if (state.ok === false) {
+          status.textContent = `构建失败：${state.error || '未知原因'}（日志：data/rebuild.log）`;
+          return;
+        }
+      } catch {
+        status.textContent = '构建完成，服务正在重启…';
+      }
+      setTimeout(tick, 1200);
+    };
+    setTimeout(tick, 800);
+  }
+</script>
+
+<style>
+  .head-links {
+    display: flex;
+    gap: 16px;
+    font-size: 0.875rem;
+    padding-bottom: 6px;
+  }
+  .notice {
+    margin-bottom: 18px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+  }
+  .notice-ok {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .notice-warn {
+    color: #a35a1f;
+    border-color: #d9a066;
+    background: rgba(217, 160, 102, 0.12);
+  }
+  :global(:root[data-theme='dark']) .notice-warn {
+    color: #e0b083;
+    border-color: #7a5630;
+    background: rgba(217, 160, 102, 0.1);
+  }
+  .rebuild-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+  }
+  .rebuild-form {
+    display: inline-flex;
+    margin: 0;
+  }
+  .gate {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elev);
+  }
+  .stats {
+    margin: 18px 0 4px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .block-title {
+    margin: 32px 0 8px;
+  }
+  .section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .hint {
+    margin: 0 0 12px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+  .item {
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elev);
+  }
+  .item > summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .item > summary::-webkit-details-marker {
+    display: none;
+  }
+  .item[open] > summary {
+    border-bottom: 1px solid var(--border);
+  }
+  .item-title {
+    font-weight: 600;
+  }
+  .item-meta {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .item.is-overridden {
+    border-left: 3px solid var(--accent);
+  }
+  .item.is-custom {
+    border-left: 3px dashed var(--line-strong);
+  }
+  .item-add {
+    border-style: dashed;
+  }
+  .item-add > summary {
+    color: var(--text-soft);
+  }
+  details.item > :global(.cform) {
+    border: 0;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+</style>

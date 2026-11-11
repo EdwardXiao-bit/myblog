@@ -1,0 +1,393 @@
+---
+import type { ContentKind, ContentRow } from '../../lib/content';
+import { MAX_IMAGE_BYTES } from '../../lib/storage';
+
+interface Props {
+  kind: ContentKind;
+  /** 已存在的覆盖行；为空表示新建 */
+  row?: ContentRow | null;
+  /** 覆盖现有 Markdown 条目时锁定 slug */
+  slug?: string;
+  /** 编辑静态条目时的原标题，仅用于展示 */
+  staticTitle?: string;
+  submitLabel?: string;
+}
+
+const { kind, row = null, slug = '', staticTitle = '', submitLabel = '保存' } = Astro.props;
+const lockedSlug = row?.slug ?? slug;
+const value = (
+  fallback: string | number | boolean,
+  current: string | number | boolean | null | undefined,
+) => (current === null || current === undefined ? fallback : current);
+/** 图片大小上限，跟着 lib/storage 的常量走 */
+const maxMb = Math.round(MAX_IMAGE_BYTES / 1024 / 1024);
+---
+
+<form method="post" action="/api/admin-content" enctype="multipart/form-data" class="cform">
+  <input type="hidden" name="action" value="save" />
+  <input type="hidden" name="kind" value={kind} />
+  {row && <input type="hidden" name="id" value={String(row.id)} />}
+  {lockedSlug ? <input type="hidden" name="slug" value={lockedSlug} /> : <input type="hidden" name="slug" value="" />}
+
+  {staticTitle && (
+    <p class="cform-note">
+      正在覆盖静态条目 <code>{lockedSlug}</code>（原标题：{staticTitle}）。删掉这条覆盖就回到 Markdown 版本。
+    </p>
+  )}
+
+  <div class="cform-grid">
+    <label class="cf">
+      <span>标题{kind === 'deck' ? '（相片堆写说明文字）' : ''}</span>
+      <input name="title" value={value('', row?.title)} required maxlength="120" />
+    </label>
+
+    <label class="cf">
+      <span>排序（小的在前）</span>
+      <input name="order" type="number" value={String(value(100, row?.order))} />
+    </label>
+
+    {kind !== 'deck' && (
+      <label class="cf cf-wide">
+        <span>简介</span>
+        <textarea name="summary" rows="2">{value('', row?.summary)}</textarea>
+      </label>
+    )}
+
+    {kind === 'project' && (
+      <>
+        <label class="cf">
+          <span>链接（外链或站内路径）</span>
+          <input name="href" value={value('', row?.href)} placeholder="https://…" />
+        </label>
+        <label class="cf">
+          <span>时间</span>
+          <input name="period" value={value('', row?.period)} placeholder="2026 · 春" />
+        </label>
+        <label class="cf cf-wide">
+          <span>标签（逗号或换行分隔）</span>
+          <input name="tags" value={value('', row?.tags.join(', '))} placeholder="Astro, SQLite" />
+        </label>
+      </>
+    )}
+
+    {kind === 'activity' && (
+      <>
+        <label class="cf">
+          <span>日期</span>
+          <input name="date" type="date" value={value('', row?.date)} required />
+        </label>
+        <label class="cf">
+          <span>地点</span>
+          <input name="location" value={value('', row?.location)} placeholder="成都" />
+        </label>
+        <label class="cf cf-wide">
+          <span>正文（空行分段）</span>
+          <textarea name="body" rows="5">{value('', row?.body)}</textarea>
+        </label>
+
+        <div class="cf-wide photo-field" data-photo-field>
+          <span class="photo-label">相册图片（可多选，保存时上传）</span>
+          {
+            row && row.photos.length > 0 && (
+              <ul class="photo-list" data-photo-existing>
+                {row.photos.map((src, i) => (
+                  <li class="photo-row">
+                    <img class="photo-thumb" src={src} alt="" width="44" height="44" loading="lazy" />
+                    <input type="hidden" name="photo_src" value={src} />
+                    <input
+                      class="photo-caption"
+                      name="photo_caption"
+                      value={row.captions[i] ?? ''}
+                      placeholder="题注（可留空）"
+                      maxlength="120"
+                    />
+                    <button type="button" class="photo-remove" data-photo-remove>
+                      移除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+          <input
+            type="file"
+            name="photos"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            data-photo-input
+          />
+          <span class="cf-hint" data-photo-empty
+            >选一张或多张本地图片（jpg / png / webp / gif，单张 ≤ {maxMb} MB）；选完在下面写题注，再选会继续追加。</span
+          >
+          <ul class="photo-list" data-photo-preview hidden></ul>
+        </div>
+      </>
+    )}
+
+    {kind === 'deck' && (
+      <label class="cf cf-wide">
+        <span>点开去哪（外链或站内路径）</span>
+        <input name="href" value={value('', row?.href)} placeholder="/projects/" />
+      </label>
+    )}
+
+    <label class="cf cf-wide">
+      <span>封面图{row?.cover ? `（已上传：${row.cover}）` : ''}</span>
+      <input name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+      <span class="cf-hint">
+        {lockedSlug && !row?.cover ? '留空则沿用原条目的封面' : '不换图就留空'}；jpg / png / webp /
+        gif，单张 ≤ {maxMb} MB
+      </span>
+    </label>
+
+    <label class="cf">
+      <span>图片替代文字</span>
+      <input name="coverAlt" value={value('', row?.coverAlt)} />
+    </label>
+
+    <label class="cf">
+      <span>图片裁切</span>
+      <select name="coverFit">
+        <option value="cover" selected={(row?.coverFit ?? 'cover') === 'cover'}>填满裁切</option>
+        <option value="contain" selected={(row?.coverFit ?? 'cover') === 'contain'}>完整显示</option>
+      </select>
+    </label>
+
+    <label class="cf">
+      <span>状态</span>
+      <select name="status">
+        <option value="published" selected={(row?.status ?? 'published') === 'published'}>公开</option>
+        <option value="hidden" selected={(row?.status ?? 'published') === 'hidden'}>隐藏</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="cform-actions">
+    <button type="submit" class="btn btn-primary">{submitLabel}</button>
+    {row && (
+      <span class="cform-id">#{row.id}</span>
+    )}
+  </div>
+</form>
+
+{row && (
+  <form method="post" action="/api/admin-content" class="cform-delete" data-confirm>
+    <input type="hidden" name="action" value="delete" />
+    <input type="hidden" name="kind" value={kind} />
+    <input type="hidden" name="id" value={String(row.id)} />
+    <button type="submit" class="link-danger">删除这条{row.slug ? '覆盖（回到静态版本）' : ''}</button>
+  </form>
+)}
+
+<style>
+  .cform {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .cform-note {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+  .cform-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 14px;
+  }
+  .cf {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8125rem;
+    color: var(--text-soft);
+  }
+  .cf-wide {
+    grid-column: 1 / -1;
+  }
+  .cf input:not([type='file']),
+  .cf textarea,
+  .cf select {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+  }
+  .cf textarea {
+    resize: vertical;
+    min-height: 40px;
+    font-family: var(--font-mono);
+  }
+  .cf-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .cform-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cform-id {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .cform-delete {
+    margin-top: 6px;
+  }
+  .link-danger {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 0.8125rem;
+    color: #a33;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  /* 相册：新选的行是 JS 动态建的，没有 Astro 的 scope 属性，所以这里统一用 :global 命中 */
+  .photo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.8125rem;
+    color: var(--text-soft);
+  }
+  .photo-field :global(.photo-list) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .photo-field :global(.photo-row) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .photo-field :global(.photo-thumb) {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .photo-field :global(.photo-caption) {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .photo-field :global(.photo-caption:focus) {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .photo-field :global(.photo-remove) {
+    flex: none;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .photo-field :global(.photo-remove:hover) {
+    color: #c0504d;
+    border-color: rgb(192 80 77 / 0.35);
+  }
+  @media (max-width: 720px) {
+    .cform-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  // 相册多图：每次选择都往列表里「追加」，不会顶掉上一次选的图。
+  // 提交靠 input.files —— 每次增删后用 DataTransfer 把它同步成累积后的文件列表；
+  // 题注输入框按 DOM 顺序提交（name=new_caption），与文件顺序一一对应。
+  document.querySelectorAll('[data-photo-field]').forEach((field) => {
+    const input = field.querySelector('[data-photo-input]');
+    const preview = field.querySelector('[data-photo-preview]');
+    const hint = field.querySelector('[data-photo-empty]');
+    if (!input || !preview) return;
+
+    /** @type {{ file: File, row: HTMLElement }[]} */
+    const chosen = [];
+
+    const sync = () => {
+      const transfer = new DataTransfer();
+      for (const item of chosen) transfer.items.add(item.file);
+      input.files = transfer.files;
+      preview.hidden = chosen.length === 0;
+      if (hint) hint.hidden = chosen.length > 0;
+    };
+
+    const removeNew = (row) => {
+      const index = chosen.findIndex((item) => item.row === row);
+      if (index >= 0) chosen.splice(index, 1);
+      row.remove();
+      sync();
+    };
+
+    const append = (file) => {
+      const row = document.createElement('li');
+      row.className = 'photo-row';
+
+      const thumb = document.createElement('img');
+      thumb.className = 'photo-thumb';
+      thumb.alt = '';
+      thumb.loading = 'lazy';
+      thumb.src = URL.createObjectURL(file);
+
+      const caption = document.createElement('input');
+      caption.className = 'photo-caption';
+      caption.name = 'new_caption';
+      caption.placeholder = '题注（可留空）';
+      caption.maxLength = 120;
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'photo-remove';
+      remove.textContent = '移除';
+      remove.addEventListener('click', () => removeNew(row));
+
+      row.append(thumb, caption, remove);
+      chosen.push({ file, row });
+      preview.append(row);
+    };
+
+    input.addEventListener('change', () => {
+      for (const file of Array.from(input.files ?? [])) append(file);
+      sync();
+    });
+
+    // 已保存的图片：点「移除」直接删掉这一行，它的 photo_src / photo_caption 也就不提交了
+    field.addEventListener('click', (event) => {
+      const target = event.target;
+      const button = target instanceof Element ? target.closest('[data-photo-remove]') : null;
+      if (!button) return;
+      button.closest('li')?.remove();
+    });
+  });
+</script>

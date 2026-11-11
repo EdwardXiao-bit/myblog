@@ -3,9 +3,40 @@ import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import { site } from '../data/site';
+import {
+  applyProject,
+  listContent,
+  overridesBySlug,
+  rowToProject,
+  type ProjectView,
+} from '../lib/content';
 
-const projects = (await getCollection('projects')).sort(
-  (a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title, 'zh-CN')
+// 构建期的 Markdown 项目 + 后台新增/覆盖的项目，合并后一起排序
+const overrides = overridesBySlug('project');
+const staticProjects: ProjectView[] = (await getCollection('projects'))
+  .filter((entry) => overrides.get(entry.id)?.status !== 'hidden')
+  .map((entry) => {
+    const base: ProjectView = {
+      id: entry.id,
+      title: entry.data.title,
+      summary: entry.data.summary,
+      href: entry.data.href,
+      tags: entry.data.tags,
+      period: entry.data.period,
+      cover: entry.data.cover ?? null,
+      coverAlt: entry.data.coverAlt,
+      coverFit: entry.data.coverFit,
+      order: entry.data.order,
+    };
+    const override = overrides.get(entry.id);
+    return override ? applyProject(override, base) : base;
+  });
+const customProjects = listContent('project')
+  .filter((row) => !row.slug)
+  .map(rowToProject);
+
+const projects = [...staticProjects, ...customProjects].sort(
+  (a, b) => a.order - b.order || a.title.localeCompare(b.title, 'zh-CN'),
 );
 
 // 本站是唯一能截图给自己看的东西，放到最上面当「代表作」

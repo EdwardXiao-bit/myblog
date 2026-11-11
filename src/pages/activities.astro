@@ -4,9 +4,38 @@ import { Image } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
 import { formatDate } from '../utils/format';
+import {
+  applyActivity,
+  listContent,
+  overridesBySlug,
+  rowToActivity,
+  type ActivityView,
+} from '../lib/content';
 
-const activities = (await getCollection('activities')).sort(
-  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+const overrides = overridesBySlug('activity');
+const staticActivities: ActivityView[] = (await getCollection('activities'))
+  .filter((entry) => overrides.get(entry.id)?.status !== 'hidden')
+  .map((entry) => {
+    const base: ActivityView = {
+      id: entry.id,
+      title: entry.data.title,
+      date: entry.data.date,
+      location: entry.data.location,
+      summary: entry.data.summary,
+      cover: entry.data.cover ?? null,
+      photos: entry.data.photos,
+      captions: entry.data.captions,
+      order: entry.data.order,
+    };
+    const override = overrides.get(entry.id);
+    return override ? applyActivity(override, base) : base;
+  });
+const customActivities = listContent('activity')
+  .filter((row) => !row.slug)
+  .map(rowToActivity);
+
+const activities = [...staticActivities, ...customActivities].sort(
+  (a, b) => b.date.getTime() - a.date.getTime(),
 );
 ---
 
@@ -35,16 +64,20 @@ const activities = (await getCollection('activities')).sort(
               tabindex="-1"
               aria-hidden="true"
             >
-              {item.data.cover ? (
-                <Image
-                  src={item.data.cover}
-                  alt=""
-                  widths={[240, 480, 720]}
-                  sizes="(max-width: 640px) 100vw, 240px"
-                  loading="lazy"
-                  decoding="async"
-                  data-drift
-                />
+              {item.cover ? (
+                typeof item.cover === 'string' ? (
+                  <img src={item.cover} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <Image
+                    src={item.cover}
+                    alt=""
+                    widths={[240, 480, 720]}
+                    sizes="(max-width: 640px) 100vw, 240px"
+                    loading="lazy"
+                    decoding="async"
+                    data-drift
+                  />
+                )
               ) : (
                 <span class="thumb-empty mono">no photo</span>
               )}
@@ -52,18 +85,18 @@ const activities = (await getCollection('activities')).sort(
 
             <div class="body" data-reveal>
               <h2 class="title">
-                <a href={`/activities/${item.id}`}>{item.data.title}</a>
+                <a href={`/activities/${item.id}`}>{item.title}</a>
               </h2>
 
               <p class="meta mono">
-                <time datetime={item.data.date.toISOString()}>{formatDate(item.data.date)}</time>
-                {item.data.location && <span> · {item.data.location}</span>}
+                <time datetime={item.date.toISOString()}>{formatDate(item.date)}</time>
+                {item.location && <span> · {item.location}</span>}
               </p>
 
-              {item.data.summary && <p class="summary">{item.data.summary}</p>}
+              {item.summary && <p class="summary">{item.summary}</p>}
 
               <p class="count mono">
-                {item.data.photos.length > 0 ? `${item.data.photos.length} 张照片` : '查看详情'}
+                {item.photos.length > 0 ? `${item.photos.length} 张照片` : '查看详情'}
               </p>
             </div>
           </li>

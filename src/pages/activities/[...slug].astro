@@ -5,22 +5,111 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Gallery from '../../components/Gallery.astro';
 import { site } from '../../data/site';
 import { formatDate } from '../../utils/format';
+import {
+  applyActivity,
+  getContent,
+  getOverride,
+  listContent,
+  overridesBySlug,
+  parseActivityDate,
+  rowToActivity,
+  type ActivityView,
+} from '../../lib/content';
 
+// 详情页是构建期产物：静态 Markdown 条目 + 后台新建的活动都在构建时展开成路径，
+// 后台保存内容后会触发整体重建（见 lib/rebuild.ts）。
 export async function getStaticPaths() {
-  const activities = (await getCollection('activities')).sort(
-    (a, b) => b.data.date.getTime() - a.data.date.getTime()
-  );
-
-  return activities.map((activity, i) => ({
-    params: { slug: activity.id },
-    // 「上一条」＝ 列表里排在它上面的一条（时间更新的那条）
-    props: { activity, prev: activities[i - 1] ?? null },
-  }));
+  const overrides = overridesBySlug('activity');
+  const entries = await getCollection('activities');
+  return [
+    ...entries
+      .filter((item) => overrides.get(item.id)?.status !== 'hidden')
+      .map((item) => ({ params: { slug: item.id } })),
+    // 后台新建的活动：对外 id 是 custom-<行号>
+    ...listContent('activity')
+      .filter((row) => !row.slug && row.status !== 'hidden')
+      .map((row) => ({ params: { slug: `custom-${row.id}` } })),
+  ];
 }
 
-const { activity, prev } = Astro.props;
-const { title, date, location, summary, cover, photos, captions } = activity.data;
-const { Content } = await render(activity);
+const slug = Astro.params.slug ?? '';
+const overrides = overridesBySlug('activity');
+const entries = await getCollection('activities');
+const entry = entries.find((item) => item.id === slug) ?? null;
+
+// 后台新建的活动在库里 slug 是空的，对外 id 是 custom-<行号>（rowToActivity 定的），
+// 所以这里要把 custom-N 反查回那一行，不能走 slug 匹配。
+const customId = slug.startsWith('custom-') ? Number(slug.slice('custom-'.length)) : NaN;
+const customRow = Number.isInteger(customId) && customId > 0 ? getContent(customId) : null;
+const isCustom = Boolean(customRow && customRow.kind === 'activity' && !customRow.slug);
+
+// 后台新建、或覆盖了静态条目的活动
+const override = isCustom ? customRow : getOverride('activity', slug);
+if (!entry && !override) {
+  return Astro.redirect('/404');
+}
+// 隐藏的自定义条目从列表里消失，详情页也不该还能打开
+if (isCustom && override?.status === 'hidden') {
+  return Astro.redirect('/404');
+}
+
+const photosFromDb = override?.photos ?? [];
+const base: ActivityView = entry
+  ? {
+      id: entry.id,
+      title: entry.data.title,
+      date: entry.data.date,
+      location: entry.data.location,
+      summary: entry.data.summary,
+      cover: entry.data.cover ?? null,
+      photos: entry.data.photos,
+      captions: entry.data.captions,
+      order: entry.data.order,
+    }
+  : rowToActivity(override!);
+const activity = override ? applyActivity(override, base) : base;
+
+// 覆盖行没写正文时，仍然用 Markdown 的正文；后台新建的用纯文本分段
+const markdown = entry && !override?.body ? await render(entry) : null;
+const MarkdownContent = markdown?.Content;
+const bodyText = activity.body ?? '';
+const paragraphs = bodyText
+  .split(/\n{2,}/)
+  .map((line) => line.trim())
+  .filter(Boolean);
+
+// 「上一条」＝ 列表里时间更新的那条（静态条目和后台新建的都算，可能互相跳）
+const navItems = [
+  ...entries
+    .filter((item) => overrides.get(item.id)?.status !== 'hidden')
+    .map((item) => {
+      const row = overrides.get(item.id);
+      const date = row?.date ? parseActivityDate(row.date) : null;
+      return {
+        id: item.id,
+        title: row?.title || item.data.title,
+        date: date && !Number.isNaN(date.getTime()) ? date : item.data.date,
+      };
+    }),
+  ...listContent('activity')
+    .filter((row) => !row.slug)
+    .map((row) => {
+      const view = rowToActivity(row);
+      return { id: view.id, title: view.title, date: view.date };
+    }),
+].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+const prevItem = navItems.find(
+  (item) => item.id !== activity.id && item.date.valueOf() > activity.date.valueOf(),
+);
+const prev = prevItem ? { id: prevItem.id, title: prevItem.title } : null;
+
+const title = activity.title;
+const summary = activity.summary;
+const location = activity.location;
+const cover = activity.cover;
+const photos = activity.photos;
+const captions = activity.captions;
+const ogImage = entry ? `/og/activities/${entry.id}.png` : undefined;
 ---
 
 <BaseLayout
@@ -33,7 +122,7 @@ const { Content } = await render(activity);
     <header class="page-head" data-reveal>
       <h1 data-reveal>{title}</h1>
       <p class="meta mono">
-        <time datetime={date.toISOString()}>{formatDate(date)}</time>
+        <time datetime={activity.date.toISOString()}>{formatDate(activity.date)}</time>
         {location && <span> · {location}</span>}
       </p>
     </header>
@@ -43,21 +132,25 @@ const { Content } = await render(activity);
     {
       cover && (
         <div class="cover notched" data-reveal>
-          <Image
-            src={cover}
-            data-drift
-            alt={title}
-            widths={[640, 900, 1400]}
-            sizes="(max-width: 1040px) 100vw, 976px"
-            loading="eager"
-            decoding="async"
-          />
+          {typeof cover === 'string' ? (
+            <img src={cover} alt={title} loading="eager" decoding="async" />
+          ) : (
+            <Image
+              src={cover}
+              data-drift
+              alt={title}
+              widths={[640, 900, 1400]}
+              sizes="(max-width: 1040px) 100vw, 976px"
+              loading="eager"
+              decoding="async"
+            />
+          )}
         </div>
       )
     }
 
     <div class="prose" data-reveal>
-      <Content />
+      {MarkdownContent ? <MarkdownContent /> : paragraphs.map((text) => <p>{text}</p>)}
     </div>
 
     {
@@ -76,7 +169,7 @@ const { Content } = await render(activity);
       {
         prev ? (
           <a class="link" href={`/activities/${prev.id}`}>
-            ← 上一条 · {prev.data.title}
+            ← 上一条 · {prev.title}
           </a>
         ) : (
           <span class="mono muted">已经是最新一条</span>

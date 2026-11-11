@@ -3,7 +3,8 @@ import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 
 interface DeckItem {
-  src: ImageMetadata;
+  /** 构建期导入的图是 ImageMetadata；后台传的是 /uploads/... 路径 */
+  src: ImageMetadata | string;
   alt: string;
   caption: string;
   href: string;
@@ -28,13 +29,22 @@ const { items } = Astro.props;
           style={`--depth:${i}; background:${i === 0 ? 'var(--bg-elev)' : 'var(--bg-sunken)'}`}
           tabindex={i === 0 ? 0 : -1}
         >
-          <Image
-            src={item.src}
-            alt={item.alt}
-            widths={[520, 760, 1040]}
-            sizes="(max-width: 900px) 92vw, 520px"
-            loading={i === 0 ? 'eager' : 'lazy'}
-          />
+          {typeof item.src === 'string' ? (
+            <img
+              src={item.src}
+              alt={item.alt}
+              loading={i === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+            />
+          ) : (
+            <Image
+              src={item.src}
+              alt={item.alt}
+              widths={[520, 760, 1040]}
+              sizes="(max-width: 900px) 92vw, 520px"
+              loading={i === 0 ? 'eager' : 'lazy'}
+            />
+          )}
         </a>
       ))
     }

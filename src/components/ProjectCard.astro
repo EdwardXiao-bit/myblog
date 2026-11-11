@@ -1,9 +1,10 @@
 ---
-import type { CollectionEntry } from 'astro:content';
 import { Image } from 'astro:assets';
+import type { ProjectView } from '../lib/content';
 
 interface Props {
-  project: CollectionEntry<'projects'>;
+  /** 构建期项目或后台新建的项目，字段形状一致（见 lib/content.ts 的 ProjectView） */
+  project: ProjectView;
   /** 置顶卡：横排，图在左，信息在右 */
   featured?: boolean;
   /** 首屏内的图片优先加载 */
@@ -11,7 +12,7 @@ interface Props {
 }
 
 const { project, featured = false, eager = false } = Astro.props;
-const { title, summary, href, tags, period, cover, coverAlt, coverFit } = project.data;
+const { title, summary, href, tags, period, cover, coverAlt, coverFit } = project;
 
 const meta = [period, tags.join(' · ')].filter(Boolean).join(' / ');
 ---
@@ -20,14 +21,18 @@ const meta = [period, tags.join(' · ')].filter(Boolean).join(' / ');
   {
     cover ? (
       <div class:list={['shot', { 'shot-contain': coverFit === 'contain' }]} data-reveal>
-        <Image
-          src={cover}
-          alt={coverAlt ?? title}
-          widths={featured ? [480, 720, 960] : [360, 480, 720]}
-          sizes={featured ? '(max-width: 760px) 100vw, 520px' : '(max-width: 760px) 100vw, 460px'}
-          loading={eager ? 'eager' : 'lazy'}
-          data-drift
-        />
+        {typeof cover === 'string' ? (
+          <img src={cover} alt={coverAlt ?? title} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+        ) : (
+          <Image
+            src={cover}
+            alt={coverAlt ?? title}
+            widths={featured ? [480, 720, 960] : [360, 480, 720]}
+            sizes={featured ? '(max-width: 760px) 100vw, 520px' : '(max-width: 760px) 100vw, 460px'}
+            loading={eager ? 'eager' : 'lazy'}
+            data-drift
+          />
+        )}
       </div>
     ) : (
       <div class="shot shot-empty">

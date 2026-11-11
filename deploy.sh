@@ -104,6 +104,25 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
+# ---------- 4.5 用新代码 + 线上数据库重建一次 ----------
+# 镜像里的 dist 是 docker build 时生成的，那时还没有 ./data 卷，后台存下的覆盖行不在里面。
+# 线上内容以数据卷为准，所以每次部署后在容器内重建一次；serve.mjs 下次启动会切到新产物。
+say "在容器内重建页面（带上线上数据）"
+docker compose exec -T app node scripts/rebuild.mjs \
+  || die "容器内重建失败 —— 看上面的输出，日志也在 data/rebuild.log"
+
+say "重启应用以加载新构建"
+docker compose restart app
+for i in $(seq 1 60); do
+  status=$(docker compose ps --format json app 2>/dev/null | grep -o '"Health":"[a-z]*"' | head -1 | cut -d'"' -f4 || true)
+  if [ "$status" = "healthy" ]; then echo "  应用已就绪（第 ${i} 次探测）"; break; fi
+  if [ "$i" = "60" ]; then
+    docker compose logs --tail 50 app
+    die "重建后应用 60 次探测仍未 healthy，上面是最后 50 行日志"
+  fi
+  sleep 2
+done
+
 # ---------- 5. 自检 ----------
 if [ "$SMOKE" = "1" ]; then
   say "部署后自检（在容器内跑，能直接读到数据库）"

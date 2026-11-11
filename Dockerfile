@@ -32,6 +32,12 @@ COPY --from=build /app/package.json ./package.json
 # 运维脚本进镜像：备份、恢复演练、生产冒烟都要在容器里跑
 # （docker compose exec app node scripts/backup.mjs）
 COPY --from=build /app/scripts ./scripts
+# 后台保存内容后要在容器里重新构建（src/lib/rebuild.ts），
+# 所以源码和构建配置也得进运行镜像；否则容器只有 dist，改完没法重建。
+COPY --from=build /app/src ./src
+COPY --from=build /app/public ./public
+COPY --from=build /app/astro.config.mjs ./astro.config.mjs
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 
 # 留言板和日记都在这个 SQLite 文件里。
 # 部署时务必挂一个持久化卷到 /app/data，否则容器一重建数据就没了。
@@ -44,4 +50,6 @@ EXPOSE 4321
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:4321/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/server/entry.mjs"]
+# 用启动脚本而不是直接跑 dist/server/entry.mjs：后台触发的重建会把新产物
+# 放到 dist-build-<时间>，脚本在起服务前先切过去（见 scripts/serve.mjs）。
+CMD ["node", "scripts/serve.mjs"]
